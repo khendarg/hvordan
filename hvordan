@@ -1,0 +1,10 @@
+#!/usr/bin/env python2
+#HVORDAN: Heavy Verifier Of Reasonable, Decent Alignment Networks
+
+import Bio.Blast
+
+
+if __name__ == '__main__':
+	parser = argparse.ArgumentParser(description='Saves your wrist')
+
+	args = parser.parse_args()
