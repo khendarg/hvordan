@@ -1,10 +1,121 @@
 #!/usr/bin/env python2
 #HVORDAN: Heavy Verifier Of Reasonable, Decent Alignment Networks
 
-import Bio.Blast
+import sys, os
+import argparse
+import Bio.Blast.Applications
+import Bio.SeqIO
+import subprocess
+import urllib
+import time
 
+def searchseq(q, l): 
+	found = []
+	for seq in l:
+		print(seq.name)
+		if q in seq.name: 
+			found.append(seq)
+	return found
+
+def retrieve(accession, flat=0):
+	print(accession)
+	fa = subprocess.check_output(['blastdbcmd', '-entry', accession, '-target_only'])
+	if not flat: return fa
+	else: return fa[fa.find('\n'):].replace('\n', '')
+
+class Results:
+	def __init__(self, logtext, inprefix='.', outprefix='hvordan_out'):
+		results = []
+		if not inprefix.endswith('/'): inprefix += '/'
+		if not outprefix.endswith('/'): outprefix += '/'
+		self.inprefix = inprefix
+		self.outprefix = outprefix
+		if not os.path.isdir(self.outprefix): os.mkdir(self.outprefix)
+		self.build_db()
+
+		for l in logtext.split('\n'):
+			if l.startswith('='):
+				results.append({'A-B':[], 'B-C':[], 'C-D':[]})
+				continue
+			elif l.strip() and not l.strip().startswith('#'):
+				stuff = l[9:].split()
+				results[-1][l[4:7]].append([float(stuff[3][1:-1]), stuff[0], stuff[2]])
+		self.results = results
+		self.subjects = list(Bio.SeqIO.parse(self.inprefix + 'subjects.faa', 'fasta'))
+		self.targets = list(Bio.SeqIO.parse(self.inprefix + 'targets.faa', 'fasta'))
+
+	def build_db(self):
+		#tcdb = urllib.urlopen('http://www.tcdb.org/public/tcdb')
+		#db = open(self.outprefix + 'tcdb', 'w')
+		#db.write(tcdb.read())
+		#tcdb.close()
+		#db.close()
+		#os.system('makeblastdb -in %s/%s -dbtype prot -parse_seqids -hash_index -out %s/%s -title "%s %s"' % (self.outprefix, 'tcdb', self.outprefix, 'tcdb', 'tcdb', time.strftime('%Y-%m-%d')))
+		#raw_input()
+		#using extractFamily until I can figure out how to get makeblastdb recognize the headers
+
+		try: os.environ['BLASTDB'] += ':%s' % self.outprefix
+		except KeyError: os.environ['BLASTDB'] = ':%s' % self.outprefix
+		os.system('extractFamily.pl -i all -o %s -f blast' % self.outprefix)
+
+	def tcblast(self, fastastr, db):
+		filename = self.outprefix + '/tempseq.fa'
+		fa = open(filename, 'w')
+		#print(fastastr)
+		fa.write(fastastr)
+		fa.close()
+		cmd = Bio.Blast.Applications.NcbiblastpCommandline(cmd='blastp', query=filename, db='tcdb', evalue=1.0, outfmt=6)
+		blasttab = subprocess.check_output(str(cmd).split())
+
+		cmd = Bio.Blast.Applications.NcbiblastpCommandline(cmd='blastp', query=filename, db='tcdb', evalue=1.0)
+		blastout = subprocess.check_output(str(cmd).split())
+
+		return blasttab, blastout
+
+	def makehtml(self, tab, pairw, name='blastout.html'):
+		html = '<pre>%s</pre>' % pairw
+
+		f = open(name, 'w')
+		f.write(html)
+		f.close()
+
+	def summarize(self):
+		for r in self.results: 
+			print('='*80)
+			print('A-B', r['A-B'][0])
+			print('B-C', r['B-C'][0])
+			print('C-D', r['C-D'][0])
+			sub, tar = retrieve(r['B-C'][0][1]), retrieve(r['B-C'][0][2])
+
+			sblast = self.tcblast(sub, self.outprefix)
+			tblast = self.tcblast(tar, self.outprefix)
+
+			self.makehtml(sblast[0], sblast[1], self.outprefix + r['B-C'][0][1] + '.html')
+			self.makehtml(tblast[0], tblast[1], self.outprefix + r['B-C'][0][2] + '.html')
+			break
 
 if __name__ == '__main__':
 	parser = argparse.ArgumentParser(description='Saves your wrist')
 
+	parser.add_argument('-d', '--dir', metavar='Protocol2 directory', help='Directory containing Protocol2 results')
+	parser.add_argument('-o', '--output-dir', metavar='output directory', default='hvordan_out', help='where to dump all the files')
+	parser.add_argument('gsat_summary', help='GSAT summary detailing transitivity. Use - for stdin')
+	#output folder
+	#get accessions for best results 
+
+	#inputs: accessions of B, C, p2d for B-C, and output directory for images and stuff
+	#BLAST B, C against TCDB to get most significant A, D
+	#TCDB->NCBI precomputed
 	args = parser.parse_args()
+
+	summary = ''
+	if args.gsat_summary == '-':
+		try: 
+			while 1: summary += raw_input()
+		except EOFError: pass
+	else:
+		f = open(args.gsat_summary)
+		summary = f.read()
+		f.close()
+	x = Results(summary, args.dir, args.output_dir)
+	x.summarize()
