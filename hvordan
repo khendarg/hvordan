@@ -75,6 +75,7 @@ class Results:
 	def makehtml(self, tab, pairw, name='blastout.html'):
 		html = '<html><head><title>%s and %s</title>'
 		html += '<style>background: #0f0;</style>'
+		html += '</head>'
 		html += '<body>'
 		html += '<pre>%s</pre>' % pairw
 		html += '</body>'
