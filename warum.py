@@ -25,7 +25,7 @@ def error(*msgs):
 def info(*msgs):
 	for l in msgs: print(l, file=sys.stderr)
 
-
+#
 #def retrieve_full(accession):
 #	faa = ''
 #	if DEBUG:
