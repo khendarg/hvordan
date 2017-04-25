@@ -291,6 +291,7 @@ if __name__ == '__main__':
 	parser = argparse.ArgumentParser(description='saves your wrist!')
 
 	parser.add_argument('-d', default='./', help='Protocol2 directory {default: ./}')
+	parser.add_argument('-i', default=None, help='Root directory containing famXpander and Protocol2 directories')
 	parser.add_argument('-r', default=100, type=int, help='Resolution in dpi of graphs {default:100}')
 
 	#tested for 2.A.1 vs 2.A.6, cutoff of 25, B, C, BC
