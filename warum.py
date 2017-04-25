@@ -321,6 +321,8 @@ if __name__ == '__main__':
 	if not os.path.isfile(args.d + '/' + 'report.tbl'): 
 		error('Could not find file %s/%s' % (args.d, 'report.tbl'))
 
+	if not os.path.isdir(args.o): os.mkdir(args.o)
+
 	c2m, scores = rebuild_iter1(gsatdir=args.d + '/gsat/')
 
 	f = open(args.d + '/report.tbl')
@@ -352,6 +354,8 @@ if __name__ == '__main__':
 			elif '-' in x.split('\n')[0]: accs.append(x.split('-')[1].split()[0])
 			#worst case
 			else: accs.append(sanitize(x.split('\n')[0]))
+
+		if not os.path.isdir(args.o + '/images'): os.mkdir(args.o + '/images')
 
 		blasts = [tcblast.til_warum(l[0], args.o + '/images/' + accs[0] + '.png', dpi=args.r, html=2, outdir=args.o + '/hmmtop'), tcblast.til_warum(l[1], args.o + '/images/' + accs[1] + '.png', dpi=args.r, html=2, outdir=args.o + '/hmmtop')]
 
