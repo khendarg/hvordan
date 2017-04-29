@@ -15,6 +15,8 @@ import warnings
 
 import quod, tcblast
 
+import Bio.Entrez
+
 DEBUG = 1
 VERBOSITY = 0
 def warn(*msgs):
@@ -25,6 +27,22 @@ def error(*msgs):
 def info(*msgs):
 	for l in msgs: print(l, file=sys.stderr)
 
+def fetch(accessions, email=None, db='protein'):
+	if not email:
+		if 'ENTREZ_EMAIL' in os.environ: email = os.environ['ENTREZ_EMAIL']
+		else: 
+			raise TypeError('Missing argument email')
+	Bio.Entrez.tool = 'biopython'
+	Bio.Entrez.email = email
+	
+	acclist = ''
+	for x in accessions: acclist += ',' + x
+	acclist = acclist[1:]
+
+	f = Bio.Entrez.efetch(db=db, id=acclist, rettype='fasta', retmode='text')
+	out = f.read()
+	f.close()
+	return out
 #
 #def retrieve_full(accession):
 #	faa = ''
@@ -291,10 +309,10 @@ if __name__ == '__main__':
 	parser = argparse.ArgumentParser(description='saves your wrist!')
 
 	parser.add_argument('-d', default='./', help='Protocol2 directory {default: ./}')
-	parser.add_argument('-i', default=None, help='Root directory containing famXpander and Protocol2 directories')
 	parser.add_argument('-r', default=100, type=int, help='Resolution in dpi of graphs {default:100}')
 
-	#tested for 2.A.1 vs 2.A.6, cutoff of 25, B, C, BC
+	#use numbers only for proportional business:
+
 	#approximate details when launching quod as a process: 
 	#12dpi: 3K / 1.5s
 	#24dpi: 7K / 1.5s
@@ -328,20 +346,28 @@ if __name__ == '__main__':
 
 	f = open(args.d + '/report.tbl')
 	report = f.read()
+	print(report)
+	exit()
 	bc = parse_report(report, cutoff=args.z, p2dir=args.d)
 
 	n = 0
 	A = {}
 	D = {}
 	titles = []
+	fetchme = []
 	for l in bc: 
-		start = time.time()
 		a = (l[0][1:l[0].find(' ')].strip())
 		d = (l[1][1:l[1].find(' ')].strip())
 
 		if a not in A: A[a] = retrieve_mother(a, p2dir=args.d)
 		if d not in D: D[d] = retrieve_mother(d, p2dir=args.d)
 
+		if a not in fetchme: fetchme.append(a)
+		if d not in fetchme: fetchme.append(d)
+
+	adfastas = (fetch(fetchme))
+	for l in bc: 
+		start = time.time()
 		graphfns = quod_them(l, resoln=args.r)
 		n += 1
 		info('Built a report (%d/%d) in %0.2fms' % (n, len(bc), (time.time()-start)*1000))
@@ -361,15 +387,3 @@ if __name__ == '__main__':
 		blasts = [tcblast.til_warum(l[0], args.o + '/images/' + accs[0] + '.png', dpi=args.r, html=2, outdir=args.o + '/hmmtop'), tcblast.til_warum(l[1], args.o + '/images/' + accs[1] + '.png', dpi=args.r, html=2, outdir=args.o + '/hmmtop')]
 
 		build_html(l, graphfns, blasts, outdir=args.o, outfn='%s__%s.html' % tuple(accs)[0:2], title='%s vs %s' % tuple(accs)[0:2])
-		
-		#blasts.append(tcblast.til_warum(
-		#blasts.append(
-		#print(l[0])
-		#print(l[1])
-		#tcblast.til_warum(l[0], args.o + '/images/' + 
-
-	#graphs
-
-	#sequences!
-	#for l in bc: 
-	#	print(l)
