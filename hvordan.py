@@ -294,7 +294,7 @@ if __name__ == '__main__':
 
 	import argparse
 
-	parser = argparse.ArgumentParser()
+	parser = argparse.ArgumentParser(description='HTML Visualization of Reasonable, Decent Alignment Networks')
 
 	parser.add_argument('--p1d', default='.', help='famXpander directory. Note: Running "cut -f1-6" on psiblast.tbl will greatly improve performance')
 	parser.add_argument('--p2d', default='.', help='Protocol2 results directory')
