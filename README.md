@@ -8,12 +8,12 @@ This script generates HTML reports of individual Protocol2 results.
  * [quod](https://www.github.com/khendarg/quod)
  * * matplotlib
  * [tcblast](https://www.github.com/khendarg/tcblast)
- * * blastp
- * certifi
+ * * NCBI blast
+ * [curl](https://curl.haxx.se/)
 
 ## Instructions
 
-1. Move hvordan.py into the same directory where quod.py and tcblast.py are stored
+1. Move or symlink hvordan.py into the same directory where quod.py and tcblast.py are stored
 2. (Strongly recommended) Keep only the first six columns of each famXpander results table and move them all into the same directory. 
 ```bash
 mkdir ../famXpander_trimmed

@@ -49,9 +49,12 @@ def fetch(accessions, email=None, db='protein'):
 		for x in accessions: acclist += ',' + x
 		acclist = acclist[1:]
 
-		f = Bio.Entrez.efetch(db=db, id=acclist, rettype='fasta', retmode='text')
-		out = f.read()
-		f.close()
+		try: 
+			f = Bio.Entrez.efetch(db=db, id=acclist, rettype='fasta', retmode='text')
+			out = f.read()
+			f.close()
+		except Bio.Entrez.urllib2.URLError: 
+			out = subprocess.check_output(['curl', '-d', 'db=%s&id=%s&rettype=fasta&retmode=text' % (db, acclist), 'https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi'])
 		return out
 
 def parse_p2report(p2report, minz=15, maxz=None):
