@@ -204,8 +204,8 @@ def build_html(bc, indir, blasts, outdir='hvordan_out/html', filename='test.html
 	out += '\nA<br/><img class="bluebarplot" id="plota" src="../graphs/%s.png"/><br/>' % (bc[0])
 	out += '\nB<br/><img class="bluebarplot" id="plotb" src="../graphs/%s.png"/><br/>' % (bc[1])
 	out += '\n</div><div class="tabular2">'
-	out += '\nC<br/><img class="bluebarplot" id="plotc" src="../graphs/%s.png"/><br/>' % (bc[2])
 	out += '\nD<br/><img class="bluebarplot" id="plotd" src="../graphs/%s.png"/><br/>' % (bc[3])
+	out += '\nC<br/><img class="bluebarplot" id="plotc" src="../graphs/%s.png"/><br/>' % (bc[2])
 	out += '\n</div></div>'
 
 	out += '\n<div class="clear"></div><br/><a name="bc"><h3>BC hydropathy plot</h3></a>'
