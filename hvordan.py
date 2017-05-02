@@ -189,7 +189,6 @@ def build_html(bc, indir, blasts, outdir='hvordan_out/html', filename='test.html
 
 	#pairwise
 	out += '\n<div class="clear"></div><a name="pairwise"><h3>Pairwise</h3></a><div class="resizeable pairwise"><div class="scrollable tabular1">'
-	warn(blasts[0][1])
 	out += '\n%s' % blasts[0][1]
 	out += '</div><div class="scrollable tabular2">'
 	out += '\n%s' % blasts[1][1]
@@ -215,7 +214,7 @@ def build_html(bc, indir, blasts, outdir='hvordan_out/html', filename='test.html
 	out += '<img class="bluebarplot" id="plotbc" src="../graphs/%s_vs_%s.png"/><br/>' % (bc[1], bc[2])
 	out += '\n</div></div>'
 
-	out += '\n<button class="showhide" id="tcblastsh" onclick="toggle_section(\'tcblast\', \'tcblastsh\')">Hide</button>'
+	#out += '\n<button class="showhide" id="tcblastsh" onclick="toggle_section(\'tcblast\', \'tcblastsh\')">Hide</button>'
 
 	out += '\n<br/><div style="height: 10ex"></div>'
 	out += '\n</body></html>'
