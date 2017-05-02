@@ -9,6 +9,7 @@ This script generates HTML reports of individual Protocol2 results.
  * * matplotlib
  * [tcblast](https://www.github.com/khendarg/tcblast)
  * * blastp
+ * certifi
 
 ## Instructions
 
