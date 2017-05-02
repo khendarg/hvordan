@@ -13,7 +13,7 @@ This script generates HTML reports of individual Protocol2 results.
 
 ## Instructions
 
-1. Move or symlink hvordan.py into the same directory where quod.py and tcblast.py are stored
+1. Move or symlink hvordan.py into the same directory where quod.py and tcblast.py are stored.
 2. (Strongly recommended) Keep only the first six columns of each famXpander results table and move them all into the same directory. 
 ```bash
 mkdir ../famXpander_trimmed
@@ -21,7 +21,7 @@ for DIR in `ls`
     do cut -f1-6 $DIR/psiblast.tbl > ../famXpander_trimmed/$DIR.tbl
 done
 ```
-Failing that, symlink all of the table files into the same directory. Do note that the bottleneck in report generation is parsing these tables.
+Failing that, symlink all of the table files into the same directory. Do note that the bottleneck in report generation is parsing these tables. **Avoid this if you value your time!**
 ```bash
 mkdir ../famXpander_flat
 for DIR in `ls`
