@@ -37,3 +37,4 @@ source ~/.profile
 ```bash
 hvordan.py --p1d famXpander_trimmed --p2d 1.X.1_vs_2.Y.1/1.X.1_vs_2.Y.1 
 ```
+
