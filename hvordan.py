@@ -57,7 +57,10 @@ def fetch(accessions, email=None, db='protein'):
 		out = subprocess.check_output(['curl', '-d', 'db=%s&id=%s&rettype=fasta&retmode=text' % (db, acclist), 'https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi'])
 		return out
 
-def parse_p2report(p2report, minz=15, maxz=None, musthave=None):
+def parse_p2report(p2report, minz=15, maxz=None, musthave=None, thispair=None):
+
+	if musthave and thispair: error('Arguments musthave and thispair are not mutually compatible')
+
 	line = 0
 
 	if minz == None: minz = -2**16
@@ -78,6 +81,8 @@ def parse_p2report(p2report, minz=15, maxz=None, musthave=None):
 			if minz <= z <= maxz: 
 				#bcs.append(ls[:2])
 				if musthave and ls[0] not in musthave and ls[1] not in musthave: continue
+				if thispair:
+					if ls[:2] != thispair and ls[:2:-1] != thispair: continue
 				bcs[fams[0]].append(ls[0])
 				bcs[fams[1]].append(ls[1])
 				try: alnregs[ls[0]][ls[1]] = [ls[6], ls[7]]
@@ -104,7 +109,7 @@ def seek_initial(p1d, bcs):
 			hits[fam][bc] = sorted(hits[fam][bc])[-1]
 	return hits
 
-def clean_fetch(accs, outdir, force=False):
+def clean_fetch(accs, outdir, force=False, email=None):
 
 	if not os.path.isdir(outdir): os.mkdir(outdir)
 
@@ -119,10 +124,10 @@ def clean_fetch(accs, outdir, force=False):
 	allfaa = ''
 	if dlme: 
 		#if VERBOSITY: info('Downloading %s' % dlme)
-		allfaa += fetch(dlme)
+		allfaa += fetch(dlme, email=email)
 	if tcdlme:
 		#if VERBOSITY: info('Loading %s' % tcdlme)
-		allfaa += fetch(tcdlme, db='tcdb')
+		allfaa += fetch(tcdlme, db='tcdb', email=email)
 	fastas = {}
 	for fa in allfaa.split('\n\n'):
 		if not fa.strip(): continue
@@ -246,7 +251,7 @@ def blastem(acc, indir, outdir, dpi=300):
 	#blasts = tcblast.til_warum(seq, fn, dpi=dpi)
 	#blasts = [tcblast.til_warum(l[0], args.o + '/images/' + accs[0] + '.png', dpi=args.r, html=2, outdir=args.o + '/hmmtop'), tcblast.til_warum(l[1], args.o + '/images/' + accs[1] + '.png', dpi=args.r, html=2, outdir=args.o + '/hmmtop')]
 
-def summarize(p1d, p2d, outdir, minz=15, maxz=None, dpi=100, force=False, email=None, musthave=None):
+def summarize(p1d, p2d, outdir, minz=15, maxz=None, dpi=100, force=False, email=None, musthave=None, thispair=None):
 
 	if not os.path.isdir(outdir): os.mkdir(outdir)
 
@@ -255,7 +260,7 @@ def summarize(p1d, p2d, outdir, minz=15, maxz=None, dpi=100, force=False, email=
 	p2report = f.read()
 	f.close()
 
-	fams, bcs, alnregs = parse_p2report(p2report, minz, maxz, musthave=musthave)
+	fams, bcs, alnregs = parse_p2report(p2report, minz, maxz, musthave=musthave, thispair=thispair)
 
 	if VERBOSITY: info('Selecting best A-B C-D pairs')
 	abcd = seek_initial(p1d, bcs)
@@ -312,7 +317,8 @@ if __name__ == '__main__':
 	parser.add_argument('-e', '--email', default=None, help='Working email in case too many requests get sent and the NCBI needs to initiate contact')
 
 	parser.add_argument('-i', nargs='+', help='Operate only on pairs containing these accessions')
+	parser.add_argument('-p', nargs=2, help='Operate only on this specific pair')
 
 	args = parser.parse_args()
 
-	summarize(args.p1d, args.p2d, args.outdir, minz=args.z_min, maxz=args.z_max, dpi=args.dpi, force=args.f, email=args.email, musthave=args.i)
+	summarize(args.p1d, args.p2d, args.outdir, minz=args.z_min, maxz=args.z_max, dpi=args.dpi, force=args.f, email=args.email, musthave=args.i, thispair=args.p)
