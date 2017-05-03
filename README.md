@@ -28,6 +28,7 @@ for DIR in `ls`
 	do ln -s $DIR/psiblast.tbl ../famXpander_flag/$DIR.tbl
 done
 ```
+At the moment, it is required that all table files be in the same directory.
 3. Set the environment variable $ENTREZ\_EMAIl to an address the NCBI can contact if you send too many requests.
 ```bash
 echo ENTREZ_EMAIL=someone@example.com >> ~/.profile
