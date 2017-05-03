@@ -1,17 +1,19 @@
-# hvordan
+# hvordan & Co.
+
+A suite of niche tools of variable usefulness
+
+## hvordan
 HTML Visualization Of Reasonable, Decent Alignment Networks
 
 This script generates HTML reports of individual Protocol2 results.
 
-## Dependencies:
+### Dependencies:
 
- * [quod](https://www.github.com/khendarg/quod)
- * * matplotlib
- * [tcblast](https://www.github.com/khendarg/tcblast)
- * * NCBI blast
+ * matplotlib
+ * NCBI blast
  * [curl](https://curl.haxx.se/)
 
-## Instructions
+### Instructions
 
 1. Move or symlink hvordan.py into the same directory where quod.py and tcblast.py are stored.
 2. (Strongly recommended) Keep only the first six columns of each famXpander results table and move them all into the same directory. 
@@ -38,3 +40,12 @@ source ~/.profile
 ```bash
 hvordan.py --p1d famXpander_trimmed --p2d 1.X.1_vs_2.Y.1/1.X.1_vs_2.Y.1 
 ```
+## tcblast
+Making cheap knockoffs of popular tools since 2016!
+
+Tcblast is not currently standalone.
+
+## quod
+Questionable Utility Of Doom
+
+Makes average hydropathy graphs from sequences and sequence-containing files
