@@ -314,10 +314,12 @@ if __name__ == '__main__':
 	parser.add_argument('-f', action='store_true', help='force redownloads where applicable')
 	parser.add_argument('--dpi', type=int, default=100, help='resolution of graphs {default:100}')
 
-	parser.add_argument('-e', '--email', default=None, help='Working email in case too many requests get sent and the NCBI needs to initiate contact')
+	if 'ENTREZ_EMAIL' in os.environ:
+		parser.add_argument('-e', '--email', default=None, help='Working email in case too many requests get sent and the NCBI needs to initiate contact. Defaults to checking $ENTREZ_EMAIL if set. {current value: %s}' % os.environ['ENTREZ_EMAIL'])
+	else: parser.add_argument('-e', '--email', default=None, help='Working email in case too many requests get sent and the NCBI needs to initiate contact. Defaults to checking $ENTREZ_EMAIL if set. {unset}')
 
-	parser.add_argument('-i', nargs='+', help='Operate only on pairs containing these accessions')
-	parser.add_argument('-p', nargs=2, help='Operate only on this specific pair')
+	parser.add_argument('-i', metavar='ACC', nargs='+', help='Operate only on pairs containing these accessions')
+	parser.add_argument('-p', metavar='ACC', nargs=2, help='Operate only on this specific pair')
 
 	args = parser.parse_args()
 

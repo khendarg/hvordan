@@ -29,9 +29,9 @@ for DIR in `ls`
 done
 ```
 At the moment, it is required that all table files be in the same directory.
-3. Set the environment variable $ENTREZ\_EMAIl to an address the NCBI can contact if you send too many requests.
+3. (Optional) Set the environment variable $ENTREZ\_EMAIl to an address the NCBI can contact if you send too many requests. Otherwise, just use the ```-e``` argument every time. 
 ```bash
-echo ENTREZ_EMAIL=someone@example.com >> ~/.profile
+echo 'export ENTREZ_EMAIL=someone@example.com' >> ~/.profile
 source ~/.profile
 ```
 4. Run hvordan.py. (-h and --help provide more detailed documentation)
