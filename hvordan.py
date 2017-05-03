@@ -15,7 +15,7 @@ import warnings
 
 import quod, tcblast
 
-import Bio.Entrez
+#import Bio.Entrez
 
 DEBUG = 1
 VERBOSITY = 1
@@ -42,22 +42,22 @@ def fetch(accessions, email=None, db='protein'):
 			if 'ENTREZ_EMAIL' in os.environ: email = os.environ['ENTREZ_EMAIL']
 			else: 
 				raise TypeError('Missing argument email')
-		Bio.Entrez.tool = 'biopython'
-		Bio.Entrez.email = email
+		#Bio.Entrez.tool = 'biopython'
+		#Bio.Entrez.email = email
 		
 		acclist = ''
 		for x in accessions: acclist += ',' + x
 		acclist = acclist[1:]
 
-		try: 
-			f = Bio.Entrez.efetch(db=db, id=acclist, rettype='fasta', retmode='text')
-			out = f.read()
-			f.close()
-		except Bio.Entrez.urllib2.URLError: 
-			out = subprocess.check_output(['curl', '-d', 'db=%s&id=%s&rettype=fasta&retmode=text' % (db, acclist), 'https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi'])
+		#try: 
+		#	f = Bio.Entrez.efetch(db=db, id=acclist, rettype='fasta', retmode='text')
+		#	out = f.read()
+		#	f.close()
+		#except Bio.Entrez.urllib2.URLError: 
+		out = subprocess.check_output(['curl', '-d', 'db=%s&id=%s&rettype=fasta&retmode=text' % (db, acclist), 'https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi'])
 		return out
 
-def parse_p2report(p2report, minz=15, maxz=None):
+def parse_p2report(p2report, minz=15, maxz=None, musthave=None):
 	line = 0
 
 	if minz == None: minz = -2**16
@@ -77,6 +77,7 @@ def parse_p2report(p2report, minz=15, maxz=None):
 			z = float(ls[3])
 			if minz <= z <= maxz: 
 				#bcs.append(ls[:2])
+				if musthave and ls[0] not in musthave and ls[1] not in musthave: continue
 				bcs[fams[0]].append(ls[0])
 				bcs[fams[1]].append(ls[1])
 				try: alnregs[ls[0]][ls[1]] = [ls[6], ls[7]]
@@ -245,8 +246,7 @@ def blastem(acc, indir, outdir, dpi=300):
 	#blasts = tcblast.til_warum(seq, fn, dpi=dpi)
 	#blasts = [tcblast.til_warum(l[0], args.o + '/images/' + accs[0] + '.png', dpi=args.r, html=2, outdir=args.o + '/hmmtop'), tcblast.til_warum(l[1], args.o + '/images/' + accs[1] + '.png', dpi=args.r, html=2, outdir=args.o + '/hmmtop')]
 
-def summarize(p1d, p2d, outdir, minz=15, maxz=None, dpi=100, force=False):
-
+def summarize(p1d, p2d, outdir, minz=15, maxz=None, dpi=100, force=False, email=None, musthave=None):
 
 	if not os.path.isdir(outdir): os.mkdir(outdir)
 
@@ -255,7 +255,7 @@ def summarize(p1d, p2d, outdir, minz=15, maxz=None, dpi=100, force=False):
 	p2report = f.read()
 	f.close()
 
-	fams, bcs, alnregs = parse_p2report(p2report, minz, maxz)
+	fams, bcs, alnregs = parse_p2report(p2report, minz, maxz, musthave=musthave)
 
 	if VERBOSITY: info('Selecting best A-B C-D pairs')
 	abcd = seek_initial(p1d, bcs)
@@ -268,7 +268,7 @@ def summarize(p1d, p2d, outdir, minz=15, maxz=None, dpi=100, force=False):
 
 	#grab all relevant sequences and store them
 	if VERBOSITY: info('Retrieving sequences')
-	clean_fetch(allseqs, outdir + '/sequences', force=force)
+	clean_fetch(allseqs, outdir + '/sequences', force=force, email=email)
 
 	#make graphs for all individual full-lengthers
 	if VERBOSITY: info('Generating QUOD plots')
@@ -298,17 +298,21 @@ if __name__ == '__main__':
 
 	parser = argparse.ArgumentParser(description='HTML Visualization of Reasonable, Decent Alignment Networks')
 
-	parser.add_argument('--p1d', default='.', help='famXpander directory. Note: Running "cut -f1-6" on psiblast.tbl will greatly improve performance')
+	parser.add_argument('--p1d', default='.', help='famXpander directory. Note: Running "cut -f1-6" on psiblast.tbl will greatly improve performance. Directory traversal is not implemented yet.')
 	parser.add_argument('--p2d', default='.', help='Protocol2 results directory')
 
-	parser.add_argument('--outdir', default='hvordan_out', help='output directory')
+	parser.add_argument('--outdir', default='hvordan_out', help='output directory {default:hvordan_out}')
 
 	parser.add_argument('-z', '--z-min', default=15, type=int, help='minimum Z score {default:15}')
-	parser.add_argument('--z-max', default=None, type=int, help='maximum Z score')
+	parser.add_argument('-Z', '--z-max', default=None, type=int, help='maximum Z score')
 
 	parser.add_argument('-f', action='store_true', help='force redownloads where applicable')
-	parser.add_argument('--dpi', type=int, default=300, help='resolution of graphs {default:300}')
+	parser.add_argument('--dpi', type=int, default=100, help='resolution of graphs {default:100}')
+
+	parser.add_argument('-e', '--email', default=None, help='Working email in case too many requests get sent and the NCBI needs to initiate contact')
+
+	parser.add_argument('-i', nargs='+', help='Operate only on pairs containing these accessions')
 
 	args = parser.parse_args()
 
-	summarize(args.p1d, args.p2d, args.outdir, minz=args.z_min, maxz=args.z_max, dpi=args.dpi, force=args.f)
+	summarize(args.p1d, args.p2d, args.outdir, minz=args.z_min, maxz=args.z_max, dpi=args.dpi, force=args.f, email=args.email, musthave=args.i)
