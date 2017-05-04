@@ -31,7 +31,7 @@ for DIR in `ls`
 done
 ```
 At the moment, it is required that all table files be in the same directory.
-3. (Optional) Set the environment variable $ENTREZ\_EMAIl to an address the NCBI can contact if you send too many requests. Otherwise, just use the ```-e``` argument every time. 
+3. (Optional) Set the environment variable $ENTREZ\_EMAIL to an address the NCBI can contact if you send too many requests. Otherwise, just use the ```-e``` argument every time. 
 ```bash
 echo 'export ENTREZ_EMAIL=someone@example.com' >> ~/.profile
 source ~/.profile
