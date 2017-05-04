@@ -36,7 +36,12 @@ At the moment, it is required that all table files be in the same directory.
 echo 'export ENTREZ_EMAIL=someone@example.com' >> ~/.profile
 source ~/.profile
 ```
-4. Run hvordan.py. (-h and --help provide more detailed documentation)
+4. Make sure the TCDB BLAST database is installed either in the current directory or in $BLASTDB. If the database is not installed in either of these places, do this:
+```bash
+wget http://www.tcdb.org/public/tcdb -O tcdb.fasta
+makeblastdb -in tcdb.fasta -out tcdb -dbtype prot
+```
+5. Run hvordan.py. (-h and --help provide more detailed documentation)
 ```bash
 hvordan.py --p1d famXpander_trimmed --p2d 1.X.1_vs_2.Y.1/1.X.1_vs_2.Y.1 
 ```
