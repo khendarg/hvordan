@@ -95,7 +95,10 @@ def seek_initial(p1d, bcs):
 	for fam in sorted(bcs.keys()):
 		hits[fam] = {}
 		for bc in sorted(bcs[fam]): hits[fam][bc] = []
-		f = open(p1d + '/%s.tbl' % fam)
+		try: f = open(p1d + '/%s.tbl' % fam)
+		except IOError:
+			try: f = open('%s/%s/psiblast.tbl' % (p1d + fam))
+			except IOError: error('Could not find famXpander results file(s)')
 		x = f.read()
 		f.close()
 		for l in x.split('\n'):
@@ -251,8 +254,10 @@ def blastem(acc, indir, outdir, dpi=300):
 	#blasts = tcblast.til_warum(seq, fn, dpi=dpi)
 	#blasts = [tcblast.til_warum(l[0], args.o + '/images/' + accs[0] + '.png', dpi=args.r, html=2, outdir=args.o + '/hmmtop'), tcblast.til_warum(l[1], args.o + '/images/' + accs[1] + '.png', dpi=args.r, html=2, outdir=args.o + '/hmmtop')]
 
-def summarize(p1d, p2d, outdir, minz=15, maxz=None, dpi=100, force=False, email=None, musthave=None, thispair=None):
+def summarize(p1d, p2d, outdir, minz=15, maxz=None, dpi=100, force=False, email=None, musthave=None, thispair=None, fams=None):
 
+	print(fams)
+	exit()
 	if not os.path.isdir(outdir): os.mkdir(outdir)
 
 	if VERBOSITY: info('Reading Protocol2 report')
@@ -303,10 +308,12 @@ if __name__ == '__main__':
 
 	parser = argparse.ArgumentParser(description='HTML Visualization of Reasonable, Decent Alignment Networks')
 
-	parser.add_argument('--p1d', default='.', help='famXpander directory. Note: Running "cut -f1-6" on psiblast.tbl will greatly improve performance. Directory traversal is not implemented yet.')
-	parser.add_argument('--p2d', default='.', help='Protocol2 results directory')
+	parser.add_argument('--p1d', default='.', help='famXpander directory. Note: Running "cut -f1-6" on psiblast.tbl will greatly improve performance, but compatibility with famXpander/9.X.99/psiblast.tbl directory structures is implemented. Directory traversal is not implemented yet.')
+	parser.add_argument('--p2d', default='.', help='Protocol2 directory. If using on root Protocol2 directories, --f1 and --f2 are required.')
 
 	parser.add_argument('--outdir', default='hvordan_out', help='output directory {default:hvordan_out}')
+
+	parser.add_argument('--fams', metavar='FAMILY', default=None, nargs=2, help='families to inspect. Required if using --p2d on root Protocol2 directories')
 
 	parser.add_argument('-z', '--z-min', default=15, type=int, help='minimum Z score {default:15}')
 	parser.add_argument('-Z', '--z-max', default=None, type=int, help='maximum Z score')
@@ -323,4 +330,4 @@ if __name__ == '__main__':
 
 	args = parser.parse_args()
 
-	summarize(args.p1d, args.p2d, args.outdir, minz=args.z_min, maxz=args.z_max, dpi=args.dpi, force=args.f, email=args.email, musthave=args.i, thispair=args.p)
+	summarize(args.p1d, args.p2d, args.outdir, minz=args.z_min, maxz=args.z_max, dpi=args.dpi, force=args.f, email=args.email, musthave=args.i, thispair=args.p, fams=args.fams)
