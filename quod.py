@@ -140,7 +140,8 @@ def what(sequences, labels=None, imgfmt='png', directory=None, filename=None, ti
 	if not overwrite and os.path.isfile(filename): return
 
 	minl = None
-	maxl = None
+	#maxl = None
+	maxl = 0
 	hydropathies = []
 	top = []
 
@@ -153,14 +154,16 @@ def what(sequences, labels=None, imgfmt='png', directory=None, filename=None, ti
 		if minl == None: minl = len(hydropathies[-1])
 		elif len(hydropathies[-1]) < minl: minl = len(hydropathies[-1])
 
-		if maxl == None: maxl = len(hydropathies[-1])
-		elif len(hydropathies[-1]) > maxl: maxl = len(hydropathies[-1])
+		#if maxl == None: maxl = len(hydropathies[-1])
+		#elif len(hydropathies[-1]) > maxl: maxl = len(hydropathies[-1])
+		if len(seq) > maxl: maxl = len(seq)
 
 	halen = len(hydropathies[0])
 
 	#...except this, which may be an artifact of only worrying about 2 sequences...
 	#X = range(len(hydropathies[0]))
 	X = range(maxl)
+	print(maxl)
 
 	plt.figure()
 	plt.axhline(y=0, color='black')
@@ -168,12 +171,15 @@ def what(sequences, labels=None, imgfmt='png', directory=None, filename=None, ti
 	#...and this one too...
 	#plt.xlim(right=len(sequences[0]))
 	plt.xlim(right=maxl)
+
 	if title: plt.suptitle(title)
+
 	else:
 		if len(labels) == 1: plt.suptitle(labels[0])
 		elif len(labels) == 2: plt.suptitle('%s (red) and %s (blue)' % tuple(labels))
 		elif len(labels) == 3: plt.suptitle('%s, %s, and %s' % tuple(labels))
 		elif len(labels) > 3: plt.suptitle('%s, %s, %s, and %d more' % (tuple(labels[0:3]) + (len(labels) - 3,)))
+
 	plt.xlabel('Residue #')
 	plt.ylabel('Hydro')
 	plt.legend(loc='lower right')
@@ -187,7 +193,8 @@ def what(sequences, labels=None, imgfmt='png', directory=None, filename=None, ti
 		#I can only assume it makes sure TMSs land on the right spots in alignments with lots of -'s and Xs
 		#Mostly, I don't quite know how self.queryhmg or self.tcdbhmg return their results
 		#for tms in top[i]: plt.axvspan(tms[0], tms[1], facecolor=color(i), alpha=0.6/len(hydropathies))
-		for tms in top[i]: plt.axvspan(tms[0], tms[1], facecolor=tms_color(i), alpha=0.25)
+		for tms in top[i]: 
+			plt.axvspan(tms[0]-10, tms[1]-10, facecolor=tms_color(i), alpha=0.25)
 
 	fig = plt.gcf()
 	fig.set_size_inches(15, 3)
