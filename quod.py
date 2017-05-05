@@ -194,7 +194,7 @@ def what(sequences, labels=None, imgfmt='png', directory=None, filename=None, ti
 		#Mostly, I don't quite know how self.queryhmg or self.tcdbhmg return their results
 		#for tms in top[i]: plt.axvspan(tms[0], tms[1], facecolor=color(i), alpha=0.6/len(hydropathies))
 		for tms in top[i]: 
-			plt.axvspan(tms[0]-10, tms[1]-10, facecolor=tms_color(i), alpha=0.25)
+			plt.axvspan(tms[0]-window/2, tms[1]-window/2, facecolor=tms_color(i), alpha=0.25)
 
 	fig = plt.gcf()
 	fig.set_size_inches(15, 3)
@@ -202,7 +202,7 @@ def what(sequences, labels=None, imgfmt='png', directory=None, filename=None, ti
 	#f.close()
 	plt.savefig(filename, dpi=dpi, format=imgfmt, bbox_inches='tight', pad_inches=0.003)
 	if VERBOSITY != VERBOSITY: 
-		if len(labels) == 1: print('%s: %s' % (filename, labels[0]))
+		if len(labels) == 1: print('%s: %s' % (filename, labels[1]))
 		elif len(labels) == 2: print('%s: %s, %s' % (filename, labels[0], labels[1]))
 		elif len(labels) == 3: print('%s: %s, %s, %s' % (filename, labels[0], labels[1], labels[2]))
 		elif len(labels) > 3: print('%s: %s, %s, %s, and %d others' % (filename, labels[0], labels[1], labels[2], len(labels)-3))
