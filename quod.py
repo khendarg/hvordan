@@ -163,7 +163,6 @@ def what(sequences, labels=None, imgfmt='png', directory=None, filename=None, ti
 	#...except this, which may be an artifact of only worrying about 2 sequences...
 	#X = range(len(hydropathies[0]))
 	X = range(maxl)
-	print(maxl)
 
 	plt.figure()
 	plt.axhline(y=0, color='black')
@@ -201,12 +200,12 @@ def what(sequences, labels=None, imgfmt='png', directory=None, filename=None, ti
 	#f = tempfile.NamedTemporaryFile()
 	#f.close()
 	plt.savefig(filename, dpi=dpi, format=imgfmt, bbox_inches='tight', pad_inches=0.003)
-	if VERBOSITY != VERBOSITY: 
-		if len(labels) == 1: print('%s: %s' % (filename, labels[1]))
-		elif len(labels) == 2: print('%s: %s, %s' % (filename, labels[0], labels[1]))
-		elif len(labels) == 3: print('%s: %s, %s, %s' % (filename, labels[0], labels[1], labels[2]))
-		elif len(labels) > 3: print('%s: %s, %s, %s, and %d others' % (filename, labels[0], labels[1], labels[2], len(labels)-3))
-	        else: print(filename)
+	#if VERBOSITY != VERBOSITY: 
+	#	if len(labels) == 1: print('%s: %s' % (filename, labels[1]))
+	#	elif len(labels) == 2: print('%s: %s, %s' % (filename, labels[0], labels[1]))
+	#	elif len(labels) == 3: print('%s: %s, %s, %s' % (filename, labels[0], labels[1], labels[2]))
+	#	elif len(labels) > 3: print('%s: %s, %s, %s, and %d others' % (filename, labels[0], labels[1], labels[2], len(labels)-3))
+	#        else: print(filename)
 	if not hide and (imgfmt != 'eps' and imgfmt != 'tif'):
 		if viewer: IMAGE_VIEWER = viewer
 		else:
