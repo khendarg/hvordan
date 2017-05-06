@@ -112,7 +112,7 @@ def tms_color(n):
 	if r == 0: return 'orange'
 	elif r == 1: return 'cyan'
 
-def what(sequences, labels=None, imgfmt='png', directory=None, filename=None, title=False, dpi=80, hide=True, viewer=None, overwrite=False):
+def what(sequences, labels=None, imgfmt='png', directory=None, filename=None, title=False, dpi=80, hide=True, viewer=None, overwrite=False, window=19):
 	#generalized from gblast3.py but mostly the same...
 	if not labels:
 		labels = []
@@ -149,7 +149,7 @@ def what(sequences, labels=None, imgfmt='png', directory=None, filename=None, ti
 
 		top.append(hmmtop(seq))
 		
-		hydropathies.append(hydro(seq))
+		hydropathies.append(hydro(seq, window=window))
 
 		if minl == None: minl = len(hydropathies[-1])
 		elif len(hydropathies[-1]) < minl: minl = len(hydropathies[-1])
