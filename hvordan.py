@@ -97,7 +97,7 @@ def seek_initial(p1d, bcs):
 		for bc in sorted(bcs[fam]): hits[fam][bc] = []
 		try: f = open(p1d + '/%s.tbl' % fam)
 		except IOError:
-			try: f = open('%s/%s/psiblast.tbl' % (p1d + fam))
+			try: f = open('%s/%s/psiblast.tbl' % (p1d, fam))
 			except IOError: error('Could not find famXpander results file(s)')
 		x = f.read()
 		f.close()
