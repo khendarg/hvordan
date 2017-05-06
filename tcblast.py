@@ -8,6 +8,9 @@ import numpy as np
 
 import re
 
+import warnings
+warnings.filterwarnings("ignore")
+
 def blast(seq):
 	f = tempfile.NamedTemporaryFile(delete=False)
 	f.write(seq.encode('utf-8'))
