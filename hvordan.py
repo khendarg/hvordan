@@ -99,17 +99,18 @@ def seek_initial(p1d, bcs):
 		except IOError:
 			try: f = open('%s/%s/psiblast.tbl' % (p1d, fam))
 			except IOError: error('Could not find famXpander results file(s)')
-		x = f.read()
-		f.close()
-		for l in x.split('\n'):
+		for l in f:
 			if not l.strip(): continue
 			if l.lstrip().startswith('#'): continue
 			ls = l.split('\t')
-			try: hits[fam][ls[1]].append((float(ls[4]), ls[0]))
+			try: 
+				hits[fam][ls[1]].append((float(ls[4]), ls[0]))
 			#except KeyError: hits[fam][ls[1]] = [(float(ls[4]), ls[0])]
 			except KeyError: pass
+			#TODO: Implement early file exiting
 		for bc in sorted(hits[fam]):
 			hits[fam][bc] = sorted(hits[fam][bc])[-1]
+		f.close()
 	return hits
 
 def clean_fetch(accs, outdir, force=False, email=None):
