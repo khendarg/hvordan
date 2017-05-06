@@ -256,12 +256,16 @@ def blastem(acc, indir, outdir, dpi=300):
 
 def summarize(p1d, p2d, outdir, minz=15, maxz=None, dpi=100, force=False, email=None, musthave=None, thispair=None, fams=None):
 
-	print(fams)
-	exit()
 	if not os.path.isdir(outdir): os.mkdir(outdir)
 
 	if VERBOSITY: info('Reading Protocol2 report')
-	f = open(p2d + '/report.tbl')
+	try: f = open(p2d + '/report.tbl')
+	except IOError:
+		famvfam = '%s_vs_%s' % tuple(fams)
+		try: f = open('%s/%s/report.tbl' % (p2d, famvfam))
+		except IOError:
+			try: f = open('%s/%s/%s/report.tbl' % (p2d, famvfam, famvfam))
+			except IOError: error('Could not find a Protocol2 directory for %s and %s' % tuple(fams))
 	p2report = f.read()
 	f.close()
 

@@ -170,6 +170,7 @@ def summary(tab, html=False, outdir=None, prefix=''):
 		n += 1
 		if not l.strip(): continue
 		hit = l.split()[1]
+		#if 'TC-DB' in hit: hit = hit.split('|')[3] + '-' + hit.split('|')[2]
 		seq = subprocess.check_output(['blastdbcmd', '-db', 'tcdb', '-target_only','-entry', hit]).decode('utf-8')
 		tmss = parse_hmmtop(hmmtop(seq, outdir=outdir, silent=True))
 		ntmss = len(tmss)
