@@ -316,15 +316,15 @@ if __name__ == '__main__':
 	parser.add_argument('--p1d', default='.', help='famXpander directory. Note: Running "cut -f1-6" on psiblast.tbl will greatly improve performance, but compatibility with famXpander/9.X.99/psiblast.tbl directory structures is implemented. Directory traversal is not implemented yet.')
 	parser.add_argument('--p2d', default='.', help='Protocol2 directory. If using on root Protocol2 directories, --f1 and --f2 are required.')
 
-	parser.add_argument('--outdir', default='hvordan_out', help='output directory {default:hvordan_out}')
+	parser.add_argument('-o', '--outdir', default='hvordan_out', help='output directory {default:hvordan_out}')
 
-	parser.add_argument('--fams', metavar='FAMILY', default=None, nargs=2, help='families to inspect. Required if using --p2d on root Protocol2 directories')
+	parser.add_argument('-f', '--fams', metavar='FAMILY', default=None, nargs=2, help='families to inspect. Required if using --p2d on root Protocol2 directories')
 
 	parser.add_argument('-z', '--z-min', default=15, type=int, help='minimum Z score {default:15}')
 	parser.add_argument('-Z', '--z-max', default=None, type=int, help='maximum Z score')
 
-	parser.add_argument('-f', action='store_true', help='force redownloads where applicable')
-	parser.add_argument('--dpi', type=int, default=100, help='resolution of graphs {default:100}')
+	parser.add_argument('-c', '--clobber', action='store_true', help='force redownloads where applicable')
+	parser.add_argument('-r', '--dpi', type=int, default=100, help='resolution of graphs {default:100}')
 
 	if 'ENTREZ_EMAIL' in os.environ:
 		parser.add_argument('-e', '--email', default=None, help='Working email in case too many requests get sent and the NCBI needs to initiate contact. Defaults to checking $ENTREZ_EMAIL if set. {current value: %s}' % os.environ['ENTREZ_EMAIL'])
@@ -334,5 +334,9 @@ if __name__ == '__main__':
 	parser.add_argument('-p', metavar='ACC', nargs=2, help='Operate only on this specific pair')
 
 	args = parser.parse_args()
+
+	if args.p1d == '.' and args.p2d == '.': 
+		parser.print_help()
+		exit()
 
 	summarize(args.p1d, args.p2d, args.outdir, minz=args.z_min, maxz=args.z_max, dpi=args.dpi, force=args.f, email=args.email, musthave=args.i, thispair=args.p, fams=args.fams)
