@@ -1,6 +1,6 @@
 <!--General layout and various text copied from https://github.com/SaierLaboratory/TCDBtools/blob/master/manuals/famXpander.md-->
 
-# Documentation for script: quod.py_
+# Documentation for script: _quod.py_
 
 ## Summary
 This script generates HTML reports with hydropathy plots and representations of TCDB BLAST hits (mostly replicating the [TCDB BLAST tool](http://www.tcdb.org/progs/blast.php)) for _Protocol2_ results. 
