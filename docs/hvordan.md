@@ -59,6 +59,7 @@ makeblastdb -in tcdb.fasta -out tcdb -dbtype prot
 5. Run hvordan.py. (-h and --help provide more detailed documentation)
 ```bash
 hvordan.py --p1d famXpander_trimmed --p2d 1.X.1_vs_2.Y.1/1.X.1_vs_2.Y.1 
+```
 
 ## Command line options
 The following options are available. 
