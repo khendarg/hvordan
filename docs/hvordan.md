@@ -16,7 +16,7 @@ Visit the
 
 2. **_TCDB protein database_**  
 Given that blastdbcmd runs locally, the TCDB database must be available locally through the environment variable _$BLASTDB_. 
-You can download all TCDB sequences from the following site and run and run ```bash makeblastdb -in tcdb.fasta -out tcdb -dbtype prot```:  
+You can download all TCDB sequences from the following site and run and run ```makeblastdb -in tcdb.fasta -out tcdb -dbtype prot```:  
 http://www.tcdb.org/public/tcdb
 
 3. **_Python 2.7+_**  
