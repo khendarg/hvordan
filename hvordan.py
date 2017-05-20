@@ -109,7 +109,7 @@ def seek_initial(p1d, bcs):
 			except KeyError: pass
 			#TODO: Implement early file exiting
 		for bc in sorted(hits[fam]):
-			hits[fam][bc] = sorted(hits[fam][bc])[-1]
+			hits[fam][bc] = sorted(hits[fam][bc])[0]
 		f.close()
 	return hits
 
@@ -339,4 +339,4 @@ if __name__ == '__main__':
 		parser.print_help()
 		exit()
 
-	summarize(args.p1d, args.p2d, args.outdir, minz=args.z_min, maxz=args.z_max, dpi=args.dpi, force=args.f, email=args.email, musthave=args.i, thispair=args.p, fams=args.fams)
+	summarize(args.p1d, args.p2d, args.outdir, minz=args.z_min, maxz=args.z_max, dpi=args.dpi, force=args.clobber, email=args.email, musthave=args.i, thispair=args.p, fams=args.fams)
