@@ -11,6 +11,7 @@ import subprocess
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
+import numpy as np
 
 VERBOSITY = 0
 
@@ -54,7 +55,7 @@ def hydro(gseq, window=19):
 		total = total/window
 		hydro.append(total)
 	if len(seq) == len(gseq):
-		return hydro
+		return np.array(hydro)
 	replace = re.finditer('(-+)',gseq)
 	inserts = {}
 	for i in replace:
@@ -79,7 +80,7 @@ def hydro(gseq, window=19):
 		else:
 			newhydro.append(h)
 			newcount +=1
-	return newhydro
+	return np.array(newhydro)
 
 def hmmtop(sequence):
 	#Kevin's standard HMMTOP invocation
@@ -90,29 +91,37 @@ def hmmtop(sequence):
 		hmmtopout = subprocess.check_output(['hmmtop', '-sf=FAS', '-is=pseudo', '-pi=spred', '-if=' + f.name], stderr=open(os.devnull, 'w'))
 	finally: os.remove(f.name)
 
-	out = hmmtopout.split()
-	ntmss = int(out[4])
-	if not ntmss: return []
+	indices = map(int, re.findall('((?:[0-9]+\s+)+)$', hmmtopout)[0].split()[1:])
+	#out = hmmtopout.split()
+	#ntmss = int(out[4])
+	#if not ntmss: return []
 
+	#tmss = []
+	#for i in range(ntmss): tmss.append(map(int, out[5 + 2*i:7+2*i]))
+	#print(repr(tmss))
 	tmss = []
-	for i in range(ntmss): tmss.append(map(int, out[5 + 2*i:7+2*i]))
+	for i in range(0, len(indices), 2): tmss.append(np.array(indices[i:i+2]))
 	return tmss
 
-def hydro_color(n):
+def hydro_color(n, color='auto'):
 	#make graphs less confusing (-K)
-	r = n % 3
-	if r == 0: return 'red'
-	elif r == 1: return 'blue'
-	elif r == 2: return 'green'
-	#probably add back extra colors later?
+	if color != 'auto': return color
+	else:
+		r = n % 3
+		if r == 0: return 'red'
+		elif r == 1: return 'blue'
+		elif r == 2: return 'green'
+		#probably add back extra colors later?
 
-def tms_color(n):
+def tms_color(n, color='auto'):
 	#colors selected by Arturo
-	r = n % 2
-	if r == 0: return 'orange'
-	elif r == 1: return 'cyan'
+	if color != 'auto': return color
+	else:
+		r = n % 2
+		if r == 0: return 'orange'
+		elif r == 1: return 'cyan'
 
-def what(sequences, labels=None, imgfmt='png', directory=None, filename=None, title=False, dpi=80, hide=True, viewer=None, overwrite=False, window=19):
+def what(sequences, labels=None, imgfmt='png', directory=None, filename=None, title=False, dpi=80, hide=True, viewer=None, bars=[], color='auto', offset=0, statistics=False, overwrite=False):
 	#generalized from gblast3.py but mostly the same...
 	if not labels:
 		labels = []
@@ -140,8 +149,7 @@ def what(sequences, labels=None, imgfmt='png', directory=None, filename=None, ti
 	if not overwrite and os.path.isfile(filename): return
 
 	minl = None
-	#maxl = None
-	maxl = 0
+	maxl = None
 	hydropathies = []
 	top = []
 
@@ -149,63 +157,79 @@ def what(sequences, labels=None, imgfmt='png', directory=None, filename=None, ti
 
 		top.append(hmmtop(seq))
 		
-		hydropathies.append(hydro(seq, window=window))
+		hydropathies.append(hydro(seq))
 
 		if minl == None: minl = len(hydropathies[-1])
 		elif len(hydropathies[-1]) < minl: minl = len(hydropathies[-1])
 
-		#if maxl == None: maxl = len(hydropathies[-1])
-		#elif len(hydropathies[-1]) > maxl: maxl = len(hydropathies[-1])
-		if len(seq) > maxl: maxl = len(seq)
+		if maxl == None: maxl = len(hydropathies[-1])
+		elif len(hydropathies[-1]) > maxl: maxl = len(hydropathies[-1])
 
 	halen = len(hydropathies[0])
 
 	#...except this, which may be an artifact of only worrying about 2 sequences...
 	#X = range(len(hydropathies[0]))
-	X = range(maxl)
+	X = np.array(range(maxl))
 
 	plt.figure()
 	plt.axhline(y=0, color='black')
 	plt.ylim(-3, 3)
 	#...and this one too...
 	#plt.xlim(right=len(sequences[0]))
-	plt.xlim(right=maxl)
-
+	plt.xlim(left=offset, right=maxl+offset)
 	if title: plt.suptitle(title)
-
 	else:
 		if len(labels) == 1: plt.suptitle(labels[0])
 		elif len(labels) == 2: plt.suptitle('%s (red) and %s (blue)' % tuple(labels))
 		elif len(labels) == 3: plt.suptitle('%s, %s, and %s' % tuple(labels))
 		elif len(labels) > 3: plt.suptitle('%s, %s, %s, and %d more' % (tuple(labels[0:3]) + (len(labels) - 3,)))
-
 	plt.xlabel('Residue #')
 	plt.ylabel('Hydro')
-	plt.legend(loc='lower right')
+	#plt.legend(loc='lower right')
 
 	for i, seq in enumerate(sequences):
 		hseq = hydropathies[i]
 
-		plt.plot(X[:len(hseq)], hseq, linewidth=1, label=labels[i], color=hydro_color(i))
+		plt.plot(X[:len(hseq)]+offset, hseq, linewidth=1, label=labels[i], color=hydro_color(i, color))
 
 		#...and last but greatest, this, which eliminates crucial logic from gblast3.py
 		#I can only assume it makes sure TMSs land on the right spots in alignments with lots of -'s and Xs
 		#Mostly, I don't quite know how self.queryhmg or self.tcdbhmg return their results
-		#for tms in top[i]: plt.axvspan(tms[0], tms[1], facecolor=color(i), alpha=0.6/len(hydropathies))
-		for tms in top[i]: 
-			plt.axvspan(tms[0]-window/2, tms[1]-window/2, facecolor=tms_color(i), alpha=0.25)
+		#for tms in top[i]: plt.axvspan(tms[0], tms[1], facecolor=color(i, color), alpha=0.6/len(hydropathies))
+		for tms in top[i]: plt.axvspan(tms[0]+offset, tms[1]+offset, facecolor=tms_color(i, color), alpha=0.25)
+
+	if bars:
+		for x in bars: plt.axvline(x=x, color='black')
 
 	fig = plt.gcf()
 	fig.set_size_inches(15, 3)
 	#f = tempfile.NamedTemporaryFile()
 	#f.close()
+	#plt.legend(bbox_to_anchor=(1.05, 1), loc=2, borderaxespad=0.)
+	legendstuff = []
+	legendtext = []
+	if len(sequences) >= 2 and statistics:
+		done = []
+		for i, h1 in enumerate(hydropathies):
+			done.append(i)
+			for j, h2 in enumerate(hydropathies):
+				if j in done: continue
+				else:
+					l = min(len(h1), len(h2))
+					legendstuff.append(matplotlib.patches.Rectangle((0, 0), 1, 1, fc='w', fill=0, edgecolor='none', linewidth=0))
+					r = np.corrcoef(h1[:l], h2[:l])[0,1]
+					text = '$R_{%d,%d} = %0.3f$' % (i, j, r)
+					text += '\n$R_{%d,%d}^{2} = %0.3f$' % (i, j, r**2)
+					text += '\n$\overline{\Delta\upsilon_{%d,%d}} = %0.2f$' % (i, j, np.mean(h2[:l]-h1[:l]))
+					legendtext.append(text)
+		plt.legend(legendstuff, tuple(legendtext))
 	plt.savefig(filename, dpi=dpi, format=imgfmt, bbox_inches='tight', pad_inches=0.003)
-	#if VERBOSITY != VERBOSITY: 
-	#	if len(labels) == 1: print('%s: %s' % (filename, labels[1]))
-	#	elif len(labels) == 2: print('%s: %s, %s' % (filename, labels[0], labels[1]))
-	#	elif len(labels) == 3: print('%s: %s, %s, %s' % (filename, labels[0], labels[1], labels[2]))
-	#	elif len(labels) > 3: print('%s: %s, %s, %s, and %d others' % (filename, labels[0], labels[1], labels[2], len(labels)-3))
-	#        else: print(filename)
+	if VERBOSITY != VERBOSITY: 
+		if len(labels) == 1: print('%s: %s' % (filename, labels[0]))
+		elif len(labels) == 2: print('%s: %s, %s' % (filename, labels[0], labels[1]))
+		elif len(labels) == 3: print('%s: %s, %s, %s' % (filename, labels[0], labels[1], labels[2]))
+		elif len(labels) > 3: print('%s: %s, %s, %s, and %d others' % (filename, labels[0], labels[1], labels[2], len(labels)-3))
+	        else: print(filename)
 	if not hide and (imgfmt != 'eps' and imgfmt != 'tif'):
 		if viewer: IMAGE_VIEWER = viewer
 		else:
@@ -228,8 +252,12 @@ if __name__ == '__main__':
 	parser.add_argument('-o', metavar='filename', default=None, help='Filename of graph, relative to the argument of -d if present and as normally interpreted otherwise')
 	parser.add_argument('-q', action='store_true', help='"quiet" mode, disables automatic opening of graphs')
 	parser.add_argument('-a', metavar='viewer', default=None, help='Viewer to be used for opening graphs')
+	parser.add_argument('-b', '--bars', nargs='+', type=int, help='Draws vertical bars at these positions')
+	parser.add_argument('-c', '--color', metavar='color', default='auto', help='Colors all curves')
+	parser.add_argument('--offset', metavar='init_resi', default=0, type=int, help='Sets starting x-value')
 	parser.add_argument('-t', metavar='format', default='png', help='Format of graph; the default is png. Also accepted are eps, jpeg, jpg, pdf, pgf, png, ps, raw, rgba, svg, svgz, tif, and tiff.')
 	parser.add_argument('-r', metavar='dpi', default=80, type=int, help='Resolution of graph in dpi. The default is 80dpi, which is suitable for viewing on monitors. Draft-quality images should be about 300dpi, and publication-quality images need to be 600 or 1200dpi depending on the journal.')
+	parser.add_argument('--statistics', action='store_true', help='Display some useful statistics on the results')
 	parser.add_argument('-l', metavar='graph_title', help='Label graph with a specific title')
 	args = parser.parse_args()
 
@@ -270,4 +298,4 @@ if __name__ == '__main__':
 			sequences.append(inp)
 			labels.append('Sequence %d' % n)
 		n += 1
-	what(sequences, labels=labels, imgfmt=args.t, directory=args.d, filename=args.o, title=args.l, dpi=args.r, hide=args.q, viewer=args.a, overwrite=True)
+	what(sequences, labels=labels, imgfmt=args.t, directory=args.d, filename=args.o, title=args.l, dpi=args.r, hide=args.q, viewer=args.a, overwrite=True, bars=args.bars, color=args.color, statistics=args.statistics, offset=args.offset)
