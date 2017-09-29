@@ -121,7 +121,7 @@ def tms_color(n, color='auto'):
 		if r == 0: return 'orange'
 		elif r == 1: return 'cyan'
 
-def what(sequences, labels=None, imgfmt='png', directory=None, filename=None, title=False, dpi=80, hide=True, viewer=None, bars=[], color='auto', offset=0, statistics=False, overwrite=False):
+def what(sequences, labels=None, imgfmt='png', directory=None, filename=None, title=False, dpi=80, hide=True, viewer=None, bars=[], color='auto', offset=0, statistics=False, overwrite=False, manual_tms=None):
 	#generalized from gblast3.py but mostly the same...
 	if not labels:
 		labels = []
@@ -155,7 +155,10 @@ def what(sequences, labels=None, imgfmt='png', directory=None, filename=None, ti
 
 	for seq in sequences:
 
-		top.append(hmmtop(seq))
+		if not manual_tms: top.append(hmmtop(seq))
+		else: 
+			if manual_tms[0]: top.append(manual_tms.pop(0))
+			else: top.append(hmmtop(seq))
 		
 		hydropathies.append(hydro(seq))
 
@@ -172,7 +175,7 @@ def what(sequences, labels=None, imgfmt='png', directory=None, filename=None, ti
 	X = np.array(range(maxl))
 
 	plt.figure()
-	plt.axhline(y=0, color='black')
+	plt.axhline(y=0, color='black', linewidth=0.5)
 	plt.ylim(-3, 3)
 	#...and this one too...
 	#plt.xlim(right=len(sequences[0]))
@@ -241,6 +244,19 @@ def what(sequences, labels=None, imgfmt='png', directory=None, filename=None, ti
 	plt.close()
 	fig.clear()
 
+def parse_csranges(csranges):
+	out = []
+	if not csranges: return []
+	for rangeset in csranges:
+		out.append([])
+		if rangeset.strip().lower() == 'skip': 
+			out[-1] = None
+			continue
+		for span in re.split('\s*,\s*', rangeset):
+			out[-1].append([int(x) for x in re.split('\s*-\s*', span)])
+
+	return out
+
 if __name__ == '__main__':
 	parser = argparse.ArgumentParser(description='QUOD, the Questionable Utility of Doom: Turns sequences into WHAT plots, saves them in a convenient directory (like a criminally empty %s), and opens them' % os.getcwd())
 
@@ -259,6 +275,8 @@ if __name__ == '__main__':
 	parser.add_argument('-r', metavar='dpi', default=80, type=int, help='Resolution of graph in dpi. The default is 80dpi, which is suitable for viewing on monitors. Draft-quality images should be about 300dpi, and publication-quality images need to be 600 or 1200dpi depending on the journal.')
 	parser.add_argument('--statistics', action='store_true', help='Display some useful statistics on the results')
 	parser.add_argument('-l', metavar='graph_title', help='Label graph with a specific title')
+
+	parser.add_argument('-m', '--manual-tms', metavar='TMSs', nargs='+', help='Use these comma-separated ranges as TMSs instead of HMMTOP output. Use spaces to separate ranges for other sequences and \'skip\' to skip sequences (i.e. letting HMMTOP assign TMSs')
 	args = parser.parse_args()
 
 	#warnings look messy
@@ -298,4 +316,4 @@ if __name__ == '__main__':
 			sequences.append(inp)
 			labels.append('Sequence %d' % n)
 		n += 1
-	what(sequences, labels=labels, imgfmt=args.t, directory=args.d, filename=args.o, title=args.l, dpi=args.r, hide=args.q, viewer=args.a, overwrite=True, bars=args.bars, color=args.color, statistics=args.statistics, offset=args.offset)
+	what(sequences, labels=labels, imgfmt=args.t, directory=args.d, filename=args.o, title=args.l, dpi=args.r, hide=args.q, viewer=args.a, overwrite=True, bars=args.bars, color=args.color, statistics=args.statistics, offset=args.offset, manual_tms=parse_csranges(args.manual_tms))

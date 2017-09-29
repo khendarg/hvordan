@@ -30,15 +30,19 @@ This program was not tested with more recent versions of Python but was implemen
 Visit the [official website](https://matplotlib.org/).
 While not required for hvordan.py itself, Matplotlib is required for the graph plotting modules, and automating graph generation is the entire point of the script.
 
+5. **_Biopython 1.70+_**
+Visit the [official website](http://biopython.org/).
+For now, index-finding for the ABCD plots will rely on pairwise2 on account of indices not being available on report.tbl.
+
 ## Instructions
 
 1. Move or symlink hvordan.py into the same directory where quod.py and tcblast.py are stored.
 
-2. (Strongly recommended) Keep only the first six columns of each famXpander results table and move them all into the same directory. 
+2. (Strongly recommended) Keep only the first twelve columns of each famXpander results table and move them all into the same directory. 
 ```bash
 mkdir ../famXpander_trimmed
 for DIR in `ls`
-    do cut -f1-6 $DIR/psiblast.tbl > ../famXpander_trimmed/$DIR.tbl
+    do cut -f1-12 $DIR/psiblast.tbl > ../famXpander_trimmed/$DIR.tbl
 done
 ```
 Failing that, symlink all of the table files into the same directory. Do note that the bottleneck in report generation is parsing these tables. **Avoid this if you value your time!**
