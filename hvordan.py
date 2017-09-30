@@ -7,7 +7,7 @@ import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
-import time
+import time, hashlib
 
 import numpy as np
 
@@ -86,8 +86,8 @@ def parse_p2report(p2report, minz=15, maxz=None, musthave=None, thispair=None):
 					if ls[:2] != thispair and ls[:2:-1] != thispair: continue
 				bcs[fams[0]].append(ls[0])
 				bcs[fams[1]].append(ls[1])
-				try: alnregs[ls[0]][ls[1]] = [ls[6], ls[7]]
-				except KeyError: alnregs[ls[0]] = {ls[1]:[ls[6], ls[7]]}
+				try: alnregs[ls[0]][ls[1]] = (ls[6], ls[7])
+				except KeyError: alnregs[ls[0]] = {ls[1]:(ls[6], ls[7])}
 			
 	return fams, bcs, alnregs
 
@@ -148,7 +148,10 @@ def clean_fetch(accs, outdir, force=False, email=None):
 
 def quod_indiv(sequences, indir, outdir, dpi=300, force=False, bars=[]):
 
-	if not os.path.isdir(outdir): os.mkdir(outdir)
+	if not os.path.isdir(outdir): 
+		try: os.mkdir(outdir)
+		#FIXME evil hack
+		except OSError: os.system('mkdir -p %s' % outdir)
 
 	for x in zip(sequences, bars): 
 		f = open(indir + '/%s.fa' % x[0])
@@ -159,7 +162,23 @@ def quod_indiv(sequences, indir, outdir, dpi=300, force=False, bars=[]):
 
 		if not force and os.path.isfile(outdir + x[0] + '.png'): continue
 
-		quod.what([seq], title=title, imgfmt='png', directory=outdir, filename=(x[0]+'.png'), dpi=dpi, hide=1, bars=bars[1])
+		quod.what([seq], title=title, imgfmt='png', directory=outdir, filename=(x[0]+'.png'), dpi=dpi, hide=1, bars=x[1])
+
+def quod_set(seqids, sequences, indir, outdir, dpi=300, force=False, bars=[], prefix='', suffix=''):
+	if not os.path.isdir(outdir): os.mkdir(outdir)
+
+	#Draw A: barred by B
+	quod.what([sequences[seqids[0]]], title=seqids[0], imgfmt='png', directory=outdir, filename=(seqids[0] + '_' + seqids[1] + '.png'), dpi=dpi, hide=1, bars=bars[0])
+
+	#Draw B: barred by C
+	quod.what([sequences[seqids[1]]], title=seqids[1], imgfmt='png', directory=outdir, filename=(seqids[1] + '_' + seqids[2] + '.png'), dpi=dpi, hide=1, bars=bars[1])
+
+	#Draw C: barred by B
+	quod.what([sequences[seqids[2]]], title=seqids[2], imgfmt='png', directory=outdir, filename=(seqids[2] + '_' + seqids[1] + '.png'), dpi=dpi, hide=1, bars=bars[2], color='blue')
+
+	#Draw D: barred by C
+	quod.what([sequences[seqids[3]]], title=seqids[3], imgfmt='png', directory=outdir, filename=(seqids[3] + '_' + seqids[2] + '.png'), dpi=dpi, hide=1, bars=bars[3], color='blue')
+
 
 def build_html(bc, indir, blasts, outdir='hvordan_out/html', filename='test.html'):
 
@@ -213,11 +232,11 @@ def build_html(bc, indir, blasts, outdir='hvordan_out/html', filename='test.html
 
 	out += '\n<div class="whatall" id="abcd">'
 	out += '\n<div class="tabular1">'
-	out += '\nA<br/><img class="bluebarplot" id="plota" src="../graphs/%s.png"/><br/>' % (bc[0])
-	out += '\nB<br/><img class="bluebarplot" id="plotb" src="../graphs/%s.png"/><br/>' % (bc[1])
+	out += '\nA<br/><img class="bluebarplot" id="plota" src="../graphs/%s_%s.png"/><br/>' % (bc[0], bc[1])
+	out += '\nB<br/><img class="bluebarplot" id="plotb" src="../graphs/%s_%s.png"/><br/>' % (bc[1], bc[2])
 	out += '\n</div><div class="tabular2">'
-	out += '\nD<br/><img class="bluebarplot" id="plotd" src="../graphs/%s.png"/><br/>' % (bc[3])
-	out += '\nC<br/><img class="bluebarplot" id="plotc" src="../graphs/%s.png"/><br/>' % (bc[2])
+	out += '\nD<br/><img class="bluebarplot" id="plotd" src="../graphs/%s_%s.png"/><br/>' % (bc[3], bc[2])
+	out += '\nC<br/><img class="bluebarplot" id="plotc" src="../graphs/%s_%s.png"/><br/>' % (bc[2], bc[1])
 	out += '\n</div></div>'
 
 	out += '\n<div class="clear"></div><br/><a name="bc"><h3>BC hydropathy plot</h3></a>'
@@ -250,7 +269,7 @@ def get_fulltrans(fams, bcs, abcd):
 
 	fulltrans = []
 	for p in pairs:
-		fulltrans.append([origs[0][p[0]][1], p[0], p[1], origs[1][p[1]][1]])
+		fulltrans.append(tuple([origs[0][p[0]][1], p[0], p[1], origs[1][p[1]][1]]))
 	return fulltrans
 
 def blastem(acc, indir, outdir, dpi=300):
@@ -333,41 +352,75 @@ def summarize(p1d, p2d, outdir, minz=15, maxz=None, dpi=100, force=False, email=
 
 	if VERBOSITY: info('Selecting best A-B C-D pairs')
 	abcd = seek_initial(p1d, bcs)
+	fulltrans = get_fulltrans(fams, bcs, abcd)
 
 	#allseqs = set()
 	#for fam in abcd:
 	#	for bc in abcd[fam]:
 	#		allseqs.add(bc)
 	#		allseqs.add(abcd[fam][bc][1])
-	allseqs = []
-	bars = []
+	#for fam in abcd:
+	#	
+	#	for bc in abcd[fam]:
+	#		allseqs.append(bc)
+	#		bars.append(abcd[fam][bc][3])
+	#		allseqs.append(abcd[fam][bc][1])
+	#		bars.append(abcd[fam][bc][2])
+	#		print(bc, abcd[fam][bc][1], abcd[fam][bc])
+	#		print(bc, bars)
+	#		#C D B A 
+	fetchme = set()
+	pairstats = {}
 	for fam in abcd:
 		for bc in abcd[fam]:
-			allseqs.append(bc)
-			bars.append(abcd[fam][bc][3])
-			allseqs.append(abcd[fam][bc][1])
-			bars.append(abcd[fam][bc][2])
-
-	fulltrans = get_fulltrans(fams, bcs, abcd)
+			fetchme.add(bc) # B|C
+			fetchme.add(abcd[fam][bc][1]) #A|D
+			try: pairstats[bc][abcd[fam][bc][1]] = abcd[fam][bc]
+			except KeyError: pairstats[bc] = {abcd[fam][bc][1]:abcd[fam][bc]}
 
 	#grab all relevant sequences and store them
 	if VERBOSITY: info('Retrieving sequences')
-	clean_fetch(allseqs, outdir + '/sequences', force=force, email=email)
+	clean_fetch(fetchme, outdir + '/sequences', force=force, email=email)
 
 	#prepare correspondences for identifind (marks B, C)
+	allseqs = []
+	bars = []
+	seqs = {}
 	for i, pair in enumerate(fulltrans):
+		[allseqs.append(x) for x in pair]
+
+		#bar A
+		bars.append(pairstats[pair[1]][pair[0]][3])
+		#bar B, C
+		try: seqb = seqs[pair[1]]
+		except KeyError:
+			with open('%s/sequences/%s.fa' % (outdir, pair[1])) as f: seqb = f.read()
+		try: seqc = seqs[pair[2]]
+		except KeyError:
+			with open('%s/sequences/%s.fa' % (outdir, pair[2])) as f: seqc = f.read()
+
+		bars.append(identifind(alnregs[pair[1]][pair[2]][0], seqb)[0])
+		bars.append(identifind(alnregs[pair[1]][pair[2]][1], seqc)[0])
+
+		#bar D
+		bars.append(pairstats[pair[2]][pair[3]][3])
+
 		try: subseqs = alnregs[pair[1]][pair[2]]
 		except KeyError: subseqs = alnregs[pair[2]][pair[1]]
 
-		#lots of reads; sorry about that
-		with open('%s/sequences/%s.fa' % (outdir, pair[1])) as f: seqb = f.read()
-		with open('%s/sequences/%s.fa' % (outdir, pair[2])) as f: seqc = f.read()
-		bars[i * 4 + 1] = identifind(seqb, subseqs[0])[1]
-		bars[i * 4 + 2] = identifind(seqc, subseqs[1])[1]
-
 	#make graphs for all individual full-lengthers
 	if VERBOSITY: info('Generating QUOD plots')
-	quod_indiv(allseqs, outdir + '/sequences', outdir + '/graphs', dpi=dpi, force=force, bars=bars)
+	#quod_indiv(allseqs, outdir + '/sequences', outdir + '/graphs', dpi=dpi, force=force, bars=bars)
+
+	for x in allseqs:
+		try: seqs[x]
+		except KeyError: 
+			with open('%s/sequences/%s.fa' % (outdir, x)) as f: seqs[x] = f.read()
+
+	for i in range(0, len(allseqs), 4):
+		# ('%s_%s_%s_%s_' % tuple(allseqs[i:i+4]))
+		#quod_indiv(tuple(allseqs[i:i+4]), outdir + '/sequences', outdir + '/graphs/' + ('%s_vs_%s' % (allseqs[i], allseqs[i+3])), dpi=dpi, force=force, bars=bars)
+		quod_set(tuple(allseqs[i:i+4]), seqs, outdir + '/sequences', outdir + '/graphs/', dpi=dpi, force=force, bars=bars[i:i+4])
 
 	#make graphs for all pairs of sequences
 	#%s_vs_%s.png % (B, C)
@@ -382,11 +435,13 @@ def summarize(p1d, p2d, outdir, minz=15, maxz=None, dpi=100, force=False, email=
 
 	if VERBOSITY: info('Generating HTML')
 	for pair in fulltrans:
-		seqs = []
+		pairseqs = []
 		for seq in pair: 
-			with open('%s/sequences/%s.fa' % (outdir, seq)) as f: seqs.append(f.read())
+			try: pairseqs.append(seqs[seq])
+			except KeyError: 
+				with open('%s/sequences/%s.fa' % (outdir, seq)) as f: pairseqs.append(f.read())
 
-		build_html(pair + seqs, indir=outdir, blasts=blasts[tuple(pair)], outdir=(outdir + '/html'), filename='%s_vs_%s.html' % tuple(pair[1:3]))
+		build_html(pair + tuple(pairseqs), indir=outdir, blasts=blasts[tuple(pair)], outdir=(outdir + '/html'), filename='%s_vs_%s.html' % tuple(pair[1:3]))
 		
 if __name__ == '__main__':
 

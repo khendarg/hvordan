@@ -17,7 +17,14 @@ VERBOSITY = 0
 
 def hydro(gseq, window=19):
 	#Copied with barely any modification from gblast3.py
+
+	#sanitize the sequence, which may be a FASTA
+	if gseq.startswith('>'):
+		gseq = gseq[gseq.find('\n')+1:]
+		gseq = re.sub('[^A-Z\-]', '', gseq)
+
 	seq=gseq.replace('-','')
+
 	prev = 0
 	index = {'G':(-0.400,0.48),
 			 'I':(4.500,1.38),
@@ -84,12 +91,17 @@ def hydro(gseq, window=19):
 
 def hmmtop(sequence):
 	#Kevin's standard HMMTOP invocation
-	f = tempfile.NamedTemporaryFile(delete=False)
-	try:
-		f.write('>tmpsequence\n' + sequence)
-		f.close()
-		hmmtopout = subprocess.check_output(['hmmtop', '-sf=FAS', '-is=pseudo', '-pi=spred', '-if=' + f.name], stderr=open(os.devnull, 'w'))
-	finally: os.remove(f.name)
+	#f = tempfile.NamedTemporaryFile(delete=False)
+	#try:
+	#	f.write('>tmpsequence\n' + sequence)
+	#	f.close()
+	#	hmmtopout = subprocess.check_output(['hmmtop', '-sf=FAS', '-is=pseudo', '-pi=spred', '-if=' + f.name], stderr=open(os.devnull, 'w'))
+	#finally: os.remove(f.name)
+
+	sequence = sequence.replace('-', '')
+	if not sequence.startswith('>'): sequence = '>seq\n' + sequence
+	f = subprocess.Popen(['hmmtop', '-sf=FAS', '-is=pseudo', '-pi=spred', '-if=--'], stdin=subprocess.PIPE, stdout=subprocess.PIPE)
+	hmmtopout, err = f.communicate(input=sequence)
 
 	indices = map(int, re.findall('((?:[0-9]+\s+)+)$', hmmtopout)[0].split()[1:])
 	#out = hmmtopout.split()

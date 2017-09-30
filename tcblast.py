@@ -43,13 +43,8 @@ def hmmtop(seq, outdir=None, silent=False):
 		f.close()
 		return x
 
-	f = tempfile.NamedTemporaryFile(delete=False)
-	f.write(seq.encode('utf-8'))
-	f.close()
-	try: 
-		if not silent: topout = subprocess.check_output(['hmmtop', '-if=%s' % f.name, '-sf=FAS', '-pi=spred', '-is=pseudo'])
-		else: topout = subprocess.check_output(['hmmtop', '-if=%s' % f.name, '-sf=FAS', '-pi=spred', '-is=pseudo'], stderr=open(os.devnull, 'w'))
-	finally: os.remove(f.name)
+	f = subprocess.Popen(['hmmtop', '-if=--', '-sf=FAS', '-pi=spred', '-is=pseudo'], stdin=subprocess.PIPE, stdout=subprocess.PIPE)
+	topout, err = f.communicate(input=seq)
 
 	if outdir:
 		f = open(fn, 'w')
