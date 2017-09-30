@@ -116,9 +116,10 @@ def tms_color(n, color='auto'):
 	#colors selected by Arturo
 	if color != 'auto': return color
 	else:
-		r = n % 2
+		r = n % 3
 		if r == 0: return 'orange'
 		elif r == 1: return 'cyan'
+		elif r == 2: return 'darkgreen'
 
 def what(sequences, labels=None, imgfmt='png', directory=None, filename=None, title=False, dpi=80, hide=True, viewer=None, bars=[], color='auto', offset=0, statistics=False, overwrite=False, manual_tms=None, wedges=None, ywedge=2, wedgelength=0.01):
 	#wedges: [(x1, dx1), (x2, dx2), ...]
@@ -158,7 +159,8 @@ def what(sequences, labels=None, imgfmt='png', directory=None, filename=None, ti
 
 		if not manual_tms: top.append(hmmtop(seq))
 		else: 
-			if manual_tms[0]: top.append(manual_tms.pop(0))
+			tms = manual_tms.pop(0)
+			if tms: top.append(tms)
 			else: top.append(hmmtop(seq))
 		
 		hydropathies.append(hydro(seq))
