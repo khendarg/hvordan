@@ -8,6 +8,9 @@ This script generates average hydropathy plots with arbitrary resolution in a va
 This can be done on multiple sequences.
 This tool mostly replicates [WHAT](http://biotools.tcdb.org/barwhat2.html).
 
+## Warning
+This script excludes the N-terminal `window` residues from graphs. Make sure length discrepancies with sequences are less than or equal to `window`
+
 ## Dependencies
 The following programs need to be available in your path for this program to run properly:
 
@@ -33,3 +36,24 @@ You can also run the script without arguments (or with -h or --help) to display 
     -r resolution in dpi (default: 80)
     -l graph title
        (positional) sequences or filenames
+    -m manually add TMSs
+
+##Manual TMS specification
+
+TMS sets for different sequences are specified by space-separated comma-separated ranges. The following example specifies a TMS spanning residues 1-20 for the first/only sequence in seq1.fa:
+
+```
+./quod.py seq1.fa -m 1-20
+```
+
+This specifies TMSs for different sequences in seqcassete.faa:
+
+```
+./quod.py seqcassette.faa -m 1-20,30-50 3-23
+```
+
+This specifies TMSs for the second sequence but leaves the first to HMMTOP:
+
+```
+./quod.py seq1.fa seq2.fa -m skip 1-20,30-50,60-80
+```

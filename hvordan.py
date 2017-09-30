@@ -16,6 +16,7 @@ import warnings
 import quod, tcblast
 
 #import Bio.Entrez
+import Bio.pairwise2, Bio.SubsMat.MatrixInfo
 
 DEBUG = 1
 VERBOSITY = 1
@@ -102,14 +103,15 @@ def seek_initial(p1d, bcs):
 		for l in f:
 			if not l.strip(): continue
 			if l.lstrip().startswith('#'): continue
+			if '\t' not in l: continue
 			ls = l.split('\t')
 			try: 
-				hits[fam][ls[1]].append((float(ls[4]), ls[0]))
+				hits[fam][ls[1]].append((float(ls[4]), ls[0], (int(ls[6]), int(ls[7])), (int(ls[9]), int(ls[10]))))
 			#except KeyError: hits[fam][ls[1]] = [(float(ls[4]), ls[0])]
 			except KeyError: pass
 			#TODO: Implement early file exiting
-		for bc in sorted(hits[fam]):
-			hits[fam][bc] = sorted(hits[fam][bc])[0]
+
+		for bc in sorted(hits[fam]): hits[fam][bc] = sorted(hits[fam][bc])[0]
 		f.close()
 	return hits
 
@@ -144,20 +146,20 @@ def clean_fetch(accs, outdir, force=False, email=None):
 		f.write(fastas[x])
 		f.close()
 
-def quod_indiv(sequences, indir, outdir, dpi=300, force=False):
+def quod_indiv(sequences, indir, outdir, dpi=300, force=False, bars=[]):
 
 	if not os.path.isdir(outdir): os.mkdir(outdir)
 
-	for x in sequences: 
-		f = open(indir + '/%s.fa' % x)
+	for x in zip(sequences, bars): 
+		f = open(indir + '/%s.fa' % x[0])
 		seq = f.read()
 		f.close()
-		title = x
+		title = x[0]
 		seq = seq[seq.find('\n')+1:].replace('\n', '')
 
-		if not force and os.path.isfile(outdir + x + '.png'): continue
+		if not force and os.path.isfile(outdir + x[0] + '.png'): continue
 
-		quod.what([seq], title=title, imgfmt='png', directory=outdir, filename=(x+'.png'), dpi=dpi, hide=1)
+		quod.what([seq], title=title, imgfmt='png', directory=outdir, filename=(x[0]+'.png'), dpi=dpi, hide=1, bars=bars[1])
 
 def build_html(bc, indir, blasts, outdir='hvordan_out/html', filename='test.html'):
 
@@ -170,7 +172,7 @@ def build_html(bc, indir, blasts, outdir='hvordan_out/html', filename='test.html
 		f.close()
 	if not os.path.isfile(outdir + '/assets/nice.css'):
 		f = open(outdir + '/assets/nice.css', 'w')
-		f.write('body {\n\tfont-family: sans;\n\theight: 100%;\n}\ndiv {\n\tdisplay: block;\n}\ndiv.tcblast {\n\tmax-width: 1500px;\n}\ndiv.fullblast {\n\twidth: 50%;\n\tfloat: left;\n}\ndiv.tabular1 {\n\twidth: 50%;\n\tfloat: left;\n\theight: 100%;\n}\ndiv.tabular2 {\n\twidth: 50%;\n\tfloat: right;\n\theight: 100%;\n}\nimg.bluebarplot {\n\tmax-width: 100%;\n\theight: auto;\n}\n.clear { clear: both; }\n.scrollable {\n\toverflow-y: scroll;\n}\n.resizeable {\n\tresize: vertical;\n\toverflow: auto;\n\tborder-bottom: 1px solid gray;\n\tdisplay: block;\n}\n.bluebars {\n\theight: 25vh;\n}\n.pairwise {\n\theight: 50vh;\n}\n.whatall {\n\theight: 50vh;\n}\n.whataln {\n\twidth: 100%;\n}\n#seqs {\n\tdisplay: none;\n}\n\n\n\n.summtbl {\n\tfont-family: monospace, courier;\n\tfont-size: 75%;\n}\n.oddrow {\n\tbackground-color: #d8d8d8;\n}\ntd {\n\tpadding-right: 1em;\n}\n.red {\n\tcolor: red;\n}\nimg {\n\tborder: 1pt solid black;\n}\n')
+		f.write('body {\n\tfont-family: sans-serif;\n\theight: 100%;\n}\ndiv {\n\tdisplay: block;\n}\ndiv.tcblast {\n\tmax-width: 1500px;\n}\ndiv.fullblast {\n\twidth: 50%;\n\tfloat: left;\n}\ndiv.tabular1 {\n\twidth: 50%;\n\tfloat: left;\n\theight: 100%;\n}\ndiv.tabular2 {\n\twidth: 50%;\n\tfloat: right;\n\theight: 100%;\n}\nimg.bluebarplot {\n\tmax-width: 100%;\n\theight: auto;\n}\n.clear { clear: both; }\n.scrollable {\n\toverflow-y: scroll;\n}\n.resizeable {\n\tresize: vertical;\n\toverflow: auto;\n\tborder-bottom: 1px solid gray;\n\tdisplay: block;\n}\n.bluebars {\n\theight: 25vh;\n}\n.pairwise {\n\theight: 50vh;\n}\n.whatall {\n\theight: 50vh;\n}\n.whataln {\n\twidth: 100%;\n}\n#seqs {\n\tdisplay: none;\n}\n\n\n\n.summtbl {\n\tfont-family: monospace, courier;\n\tfont-size: 75%;\n}\n.oddrow {\n\tbackground-color: #d8d8d8;\n}\ntd {\n\tpadding-right: 1em;\n}\n.red {\n\tcolor: red;\n}\nimg {\n\tborder: 1pt solid black;\n}\n')
 		f.close()
 	#bc := [WP_1234567890, AP_1234567890]
 	title = 'HVORDAN summary: %s vs %s' % tuple(bc[1:3])
@@ -255,6 +257,55 @@ def blastem(acc, indir, outdir, dpi=300):
 	#blasts = tcblast.til_warum(seq, fn, dpi=dpi)
 	#blasts = [tcblast.til_warum(l[0], args.o + '/images/' + accs[0] + '.png', dpi=args.r, html=2, outdir=args.o + '/hmmtop'), tcblast.til_warum(l[1], args.o + '/images/' + accs[1] + '.png', dpi=args.r, html=2, outdir=args.o + '/hmmtop')]
 
+def identifind(seq1, seq2):
+	#Seq1 = Bio.Seq.Seq(seq1, Bio.Alphabet.ProteinAlphabet())
+	if seq1.startswith('>'): seq1 = seq1[seq1.find('\n')+1:]
+	if seq2.startswith('>'): seq2 = seq2[seq2.find('\n')+1:]
+	seq1 = re.sub('[^ABCDEFGHIJKLMNOPQRSTUVWXYZ]', '', seq1.upper())
+	seq2 = re.sub('[^ABCDEFGHIJKLMNOPQRSTUVWXYZ]', '', seq2.upper())
+	#Seq1 = Bio.Seq.Seq(seq1, Bio.Alphabet.generic_protein)
+	#Seq2 = Bio.Seq.Seq(seq2, Bio.Alphabet.generic_protein)
+
+	alns = Bio.pairwise2.align.globalds(seq1, seq2, Bio.SubsMat.MatrixInfo.ident, -10, -0.5)
+	for aln in alns:
+		subjstart = 0
+
+		sngap = re.findall('^-+', aln[0])
+		if sngap: sngap = len(sngap[0])
+		else: sngap = 0
+
+		scgap = re.findall('-+$', aln[0])
+		if scgap: scgap = len(aln[0]) - len(scgap[0]) - 1
+		else: scgap = len(aln[0])-1
+
+		tngap = re.findall('^-+', aln[1])
+		if tngap: tngap = len(tngap[0])
+		else: tngap = 0
+
+		tcgap = re.findall('-+$', aln[1])
+		if tcgap: tcgap = len(aln[1]) - len(tcgap[0]) - 1
+		else: tcgap = len(aln[1])-1
+
+		if sngap: 
+			sstart = 0
+			tstart = sngap
+		else: 
+			sstart = tngap
+			tstart = 0
+
+		#if scgap: 
+		#	send = len(seq1)-1
+		#	tend = len(seq2)-scgap-1
+		#else: 
+		#	send = len(seq1)-tcgap-1
+		#	tend = len(seq2)-1
+
+		#return sstart+1, send+1, tstart+1, tend+1
+		return (sngap+1, scgap+1), (tngap+1, tcgap+1) #second pair has the useful indices for this case
+
+		#I prefer 0-indexing, but pretty much everyone 1-indexes (at least for protein sequences)
+
+
 def summarize(p1d, p2d, outdir, minz=15, maxz=None, dpi=100, force=False, email=None, musthave=None, thispair=None, fams=None):
 
 	if not os.path.isdir(outdir): os.mkdir(outdir)
@@ -275,19 +326,41 @@ def summarize(p1d, p2d, outdir, minz=15, maxz=None, dpi=100, force=False, email=
 	if VERBOSITY: info('Selecting best A-B C-D pairs')
 	abcd = seek_initial(p1d, bcs)
 
-	allseqs = set()
+	#allseqs = set()
+	#for fam in abcd:
+	#	for bc in abcd[fam]:
+	#		allseqs.add(bc)
+	#		allseqs.add(abcd[fam][bc][1])
+	allseqs = []
+	bars = []
 	for fam in abcd:
 		for bc in abcd[fam]:
-			allseqs.add(bc)
-			allseqs.add(abcd[fam][bc][1])
+			allseqs.append(bc)
+			bars.append(abcd[fam][bc][3])
+			allseqs.append(abcd[fam][bc][1])
+			bars.append(abcd[fam][bc][2])
+	#print(allseqs)
+
+	fulltrans = get_fulltrans(fams, bcs, abcd)
 
 	#grab all relevant sequences and store them
 	if VERBOSITY: info('Retrieving sequences')
 	clean_fetch(allseqs, outdir + '/sequences', force=force, email=email)
 
+	#prepare correspondences for identifind (marks B, C)
+	for i, pair in enumerate(fulltrans):
+		try: subseqs = alnregs[pair[1]][pair[2]]
+		except KeyError: subseqs = alnregs[pair[2]][pair[1]]
+
+		#lots of reads; sorry about that
+		with open('%s/sequences/%s.fa' % (outdir, pair[1])) as f: seqb = f.read()
+		with open('%s/sequences/%s.fa' % (outdir, pair[2])) as f: seqc = f.read()
+		bars[i * 4 + 1] = identifind(seqb, subseqs[0])[1]
+		bars[i * 4 + 2] = identifind(seqc, subseqs[1])[1]
+
 	#make graphs for all individual full-lengthers
 	if VERBOSITY: info('Generating QUOD plots')
-	quod_indiv(allseqs, outdir + '/sequences', outdir + '/graphs', dpi=dpi, force=force)
+	quod_indiv(allseqs, outdir + '/sequences', outdir + '/graphs', dpi=dpi, force=force, bars=bars)
 
 	#make graphs for all pairs of sequences
 	#%s_vs_%s.png % (B, C)
@@ -298,13 +371,15 @@ def summarize(p1d, p2d, outdir, minz=15, maxz=None, dpi=100, force=False, email=
 	#def build_html(bc, indir, outdir='hvordan_out/html', filename='test.html'):
 	#for s1 in alnregs:
 	#	for s2 in alnregs[s1]: 
-	fulltrans = get_fulltrans(fams, bcs, abcd)
+
 	if VERBOSITY: info('Generating TCBLAST plots')
 	blasts = {}
+	print(alnregs)
 	for pair in fulltrans:
 		blasts[tuple(pair)] = [blastem(pair[1], indir=outdir, outdir=outdir, dpi=dpi), blastem(pair[2], indir=outdir, outdir=outdir, dpi=dpi)]
 	if VERBOSITY: info('Generating HTML')
 	for pair in fulltrans:
+
 		build_html(pair, indir=outdir, blasts=blasts[tuple(pair)], outdir=(outdir + '/html'), filename='%s_vs_%s.html' % tuple(pair[1:3]))
 		
 if __name__ == '__main__':
