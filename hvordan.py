@@ -168,11 +168,11 @@ def build_html(bc, indir, blasts, outdir='hvordan_out/html', filename='test.html
 
 	if not os.path.isfile(outdir + '/assets/openclose.js'):
 		f = open(outdir + '/assets/openclose.js', 'w')
-		f.write('function toggle_section(sectionid, selfid) {\n\tvar section = document.getElementById(sectionid);\n\tvar me = document.getElementById(selfid);\n\tconsole.log([section, section.style.display]);\n\tif (section.style.display == \'none\') {\n\t\tsection.style.display = \'block\';\n\t\tme.innerHTML = \'Hide\';\n\t} else { \n\t\tsection.style.display = \'none\'; \n\t\tme.innerHTML = \'Show\';\n\t}\n}')
+		f.write('function toggle_section(sectionid, selfid) {\n\tvar section = document.getElementById(sectionid);\n\tvar me = document.getElementById(selfid);\n\t//console.log([section, section.style.display]);\n\tif (section.style.display == \'none\') {\n\t\tsection.style.display = \'block\';\n\t\tme.innerHTML = \'Hide\';\n\t} else { \n\t\tsection.style.display = \'none\'; \n\t\tme.innerHTML = \'Show\';\n\t}\n}')
 		f.close()
 	if not os.path.isfile(outdir + '/assets/nice.css'):
 		f = open(outdir + '/assets/nice.css', 'w')
-		f.write('body {\n\tfont-family: sans-serif;\n\theight: 100%;\n}\ndiv {\n\tdisplay: block;\n}\ndiv.tcblast {\n\tmax-width: 1500px;\n}\ndiv.fullblast {\n\twidth: 50%;\n\tfloat: left;\n}\ndiv.tabular1 {\n\twidth: 50%;\n\tfloat: left;\n\theight: 100%;\n}\ndiv.tabular2 {\n\twidth: 50%;\n\tfloat: right;\n\theight: 100%;\n}\nimg.bluebarplot {\n\tmax-width: 100%;\n\theight: auto;\n}\n.clear { clear: both; }\n.scrollable {\n\toverflow-y: scroll;\n}\n.resizeable {\n\tresize: vertical;\n\toverflow: auto;\n\tborder-bottom: 1px solid gray;\n\tdisplay: block;\n}\n.bluebars {\n\theight: 25vh;\n}\n.pairwise {\n\theight: 50vh;\n}\n.whatall {\n\theight: 50vh;\n}\n.whataln {\n\twidth: 100%;\n}\n#seqs {\n\tdisplay: none;\n}\n\n\n\n.summtbl {\n\tfont-family: monospace, courier;\n\tfont-size: 75%;\n}\n.oddrow {\n\tbackground-color: #d8d8d8;\n}\ntd {\n\tpadding-right: 1em;\n}\n.red {\n\tcolor: red;\n}\nimg {\n\tborder: 1pt solid black;\n}\n')
+		f.write('body {\n\tfont-family: sans-serif;\n\theight: 100%;\n}\ndiv {\n\tdisplay: block;\n}\ndiv.tcblast {\n\tmax-width: 1500px;\n}\ndiv.fullblast {\n\twidth: 50%;\n\tfloat: left;\n}\ndiv.tabular1 {\n\twidth: 50%;\n\tfloat: left;\n\theight: 100%;\n}\ndiv.tabular2 {\n\twidth: 50%;\n\tfloat: right;\n\theight: 100%;\n}\nimg.bluebarplot {\n\tmax-width: 100%;\n\theight: auto;\n}\n.clear { clear: both; }\n.scrollable {\n\toverflow-y: scroll;\n}\n.resizeable {\n\tresize: vertical;\n\toverflow: auto;\n\tborder-bottom: 1px solid gray;\n\tdisplay: block;\n}\n.bluebars {\n\theight: 25vh;\n}\n.pairwise {\n\theight: 50vh;\n}\n.whatall {\n\theight: 50vh;\n}\n.whataln {\n\twidth: 100%;\n}\n#seqs {\n\tdisplay: none;\n}\n\n\n\n.summtbl {\n\tfont-family: monospace, courier;\n\tfont-size: 75%;\n}\n.oddrow {\n\tbackground-color: #d8d8d8;\n}\ntd {\n\tpadding-right: 1em;\n}\n.red {\n\tcolor: red;\n}\nimg {\n\tborder: 1pt solid black;\n}\n.monospace {\n\tfont-family: monospace;\n}')
 		f.close()
 	#bc := [WP_1234567890, AP_1234567890]
 	title = 'HVORDAN summary: %s vs %s' % tuple(bc[1:3])
@@ -186,7 +186,7 @@ def build_html(bc, indir, blasts, outdir='hvordan_out/html', filename='test.html
 	out += '\n<h2>Table of contents</h2>'
 	out += '\n<button class="showhide" id="tocsh" onclick="toggle_section(\'toc\', \'tocsh\')">Hide</button>'
 
-	out += '\n<div class="toc" id="toc"> <ol> <li><a href="#summary">Summary</a></li> <li><a href="#pairwise">Pairwise</a></li> <li><a href="#abcd">ABCD hydropathy plots</a></li> <li><a href="#bc">BC hydropathy plot</a></li> </ol> </div>'
+	out += '\n<div class="toc" id="toc"> <ol> <li><a href="#summary">Summary</a></li> <li><a href="#pairwise">Pairwise</a></li> <li><a href="#abcd">ABCD hydropathy plots</a></li> <li><a href="#bc">BC hydropathy plot</a></li> <li><a href="sequences">Sequences</a></li> </ol> </div>'
 
 	out += '\n<h2>TCBLAST</h2>'
 
@@ -229,6 +229,14 @@ def build_html(bc, indir, blasts, outdir='hvordan_out/html', filename='test.html
 	#out += '\n<button class="showhide" id="tcblastsh" onclick="toggle_section(\'tcblast\', \'tcblastsh\')">Hide</button>'
 
 	out += '\n<br/><div style="height: 10ex"></div>'
+
+	#sequences
+	out += '\n<div class="clear"></div><br/><a name="sequences"><h3>Sequences</h3></a>'
+	out += '\n<button class="showhide" id="seqsh" onclick="toggle_section(\'sequences\', \'seqsh\')">Hide</button>'
+	out += '\n<div class="resizeable whataln monospace" id="sequences"><div class="scrollable">'
+	out += ('\n%s\n%s\n%s\n%s' % tuple(bc[4:8])).replace('\n', '<br/>\n')
+	out += '\n</div></div>'
+
 	out += '\n</body></html>'
 
 	f = open(outdir + '/' + filename, 'w')
@@ -339,7 +347,6 @@ def summarize(p1d, p2d, outdir, minz=15, maxz=None, dpi=100, force=False, email=
 			bars.append(abcd[fam][bc][3])
 			allseqs.append(abcd[fam][bc][1])
 			bars.append(abcd[fam][bc][2])
-	#print(allseqs)
 
 	fulltrans = get_fulltrans(fams, bcs, abcd)
 
@@ -365,22 +372,21 @@ def summarize(p1d, p2d, outdir, minz=15, maxz=None, dpi=100, force=False, email=
 	#make graphs for all pairs of sequences
 	#%s_vs_%s.png % (B, C)
 	for s1 in alnregs: 
-		for s2 in alnregs[s1]: #print(s1, s2, alnregs[s1][s2])
+		for s2 in alnregs[s1]: 
 			quod.what(alnregs[s1][s2], labels=[s1,s2], title='%s (red) vs %s (blue)' % (s1,s2), imgfmt='png', directory=outdir+'/graphs', filename='%s_vs_%s.png' % (s1,s2), dpi=dpi, hide=1)
-
-	#def build_html(bc, indir, outdir='hvordan_out/html', filename='test.html'):
-	#for s1 in alnregs:
-	#	for s2 in alnregs[s1]: 
 
 	if VERBOSITY: info('Generating TCBLAST plots')
 	blasts = {}
-	print(alnregs)
 	for pair in fulltrans:
 		blasts[tuple(pair)] = [blastem(pair[1], indir=outdir, outdir=outdir, dpi=dpi), blastem(pair[2], indir=outdir, outdir=outdir, dpi=dpi)]
+
 	if VERBOSITY: info('Generating HTML')
 	for pair in fulltrans:
+		seqs = []
+		for seq in pair: 
+			with open('%s/sequences/%s.fa' % (outdir, seq)) as f: seqs.append(f.read())
 
-		build_html(pair, indir=outdir, blasts=blasts[tuple(pair)], outdir=(outdir + '/html'), filename='%s_vs_%s.html' % tuple(pair[1:3]))
+		build_html(pair + seqs, indir=outdir, blasts=blasts[tuple(pair)], outdir=(outdir + '/html'), filename='%s_vs_%s.html' % tuple(pair[1:3]))
 		
 if __name__ == '__main__':
 
