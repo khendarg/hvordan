@@ -91,12 +91,6 @@ def hydro(gseq, window=19):
 
 def hmmtop(sequence):
 	#Kevin's standard HMMTOP invocation
-	#f = tempfile.NamedTemporaryFile(delete=False)
-	#try:
-	#	f.write('>tmpsequence\n' + sequence)
-	#	f.close()
-	#	hmmtopout = subprocess.check_output(['hmmtop', '-sf=FAS', '-is=pseudo', '-pi=spred', '-if=' + f.name], stderr=open(os.devnull, 'w'))
-	#finally: os.remove(f.name)
 
 	sequence = sequence.replace('-', '')
 	if not sequence.startswith('>'): sequence = '>seq\n' + sequence
@@ -104,13 +98,6 @@ def hmmtop(sequence):
 	hmmtopout, err = f.communicate(input=sequence)
 
 	indices = map(int, re.findall('((?:[0-9]+\s+)+)$', hmmtopout)[0].split()[1:])
-	#out = hmmtopout.split()
-	#ntmss = int(out[4])
-	#if not ntmss: return []
-
-	#tmss = []
-	#for i in range(ntmss): tmss.append(map(int, out[5 + 2*i:7+2*i]))
-	#print(repr(tmss))
 	tmss = []
 	for i in range(0, len(indices), 2): tmss.append(np.array(indices[i:i+2]))
 	return tmss
@@ -133,7 +120,9 @@ def tms_color(n, color='auto'):
 		if r == 0: return 'orange'
 		elif r == 1: return 'cyan'
 
-def what(sequences, labels=None, imgfmt='png', directory=None, filename=None, title=False, dpi=80, hide=True, viewer=None, bars=[], color='auto', offset=0, statistics=False, overwrite=False, manual_tms=None, wedges=None):
+def what(sequences, labels=None, imgfmt='png', directory=None, filename=None, title=False, dpi=80, hide=True, viewer=None, bars=[], color='auto', offset=0, statistics=False, overwrite=False, manual_tms=None, wedges=None, ywedge=2, wedgelength=0.01):
+	#wedges: [(x1, dx1), (x2, dx2), ...]
+
 	#generalized from gblast3.py but mostly the same...
 	if not labels:
 		labels = []
@@ -221,7 +210,7 @@ def what(sequences, labels=None, imgfmt='png', directory=None, filename=None, ti
 		for x in bars: plt.axvline(x=x, color='black')
 	if wedges:
 		for wedge in wedges:
-			plt.annotate('', xy=(wedge[0]+wedge[1]*maxl*0.01, 2), xytext=(wedge[0], 2), arrowprops={'arrowstyle':'wedge', 'facecolor':'black'})
+			plt.annotate('', xy=(wedge[0]+wedge[1]*maxl*wedgelength, ywedge), xytext=(wedge[0], ywedge), arrowprops={'arrowstyle':'wedge', 'facecolor':'black'})
 
 	fig = plt.gcf()
 	fig.set_size_inches(15, 3)
@@ -264,8 +253,9 @@ def what(sequences, labels=None, imgfmt='png', directory=None, filename=None, ti
 	fig.clear()
 
 def parse_csranges(csranges):
-	out = []
+	#assumes csranges is already in ['x-y', 'i-j,u-v'] format
 	if not csranges: return []
+	out = []
 	for rangeset in csranges:
 		out.append([])
 		if rangeset.strip().lower() == 'skip': 
@@ -273,6 +263,16 @@ def parse_csranges(csranges):
 			continue
 		for span in re.split('\s*,\s*', rangeset):
 			out[-1].append([int(x) for x in re.split('\s*-\s*', span)])
+
+	return out
+
+def parse_wranges(wranges):
+	#assumes wranges is already in ['x,dx', y,dy'] format
+	if not wranges: return []
+	out = []
+	for wedge in wranges:
+		out.append([float(x) for x in re.split('\s*,\s*', wedge)])
+		if len(out[-1]) < 2: out[-1].append(1)
 
 	return out
 
@@ -296,6 +296,9 @@ if __name__ == '__main__':
 	parser.add_argument('-l', metavar='graph_title', help='Label graph with a specific title')
 
 	parser.add_argument('-m', '--manual-tms', metavar='TMSs', nargs='+', help='Use these comma-separated ranges as TMSs instead of HMMTOP output. Use spaces to separate ranges for other sequences and \'skip\' to skip sequences (i.e. letting HMMTOP assign TMSs')
+	parser.add_argument('-w', '--wedges', metavar='wedgex,wedgedx', nargs='+', help='Draw dx-long wedges starting at x. Negative dx values result in left-pointing wedges, and positive dx values result in right-pointing wedges.')
+	parser.add_argument('-W', '--walls', metavar='x,dx', nargs='+', help='Shorthand to specifying both --wedges and --bars for the same x-values. Cumulative with both')
+
 	args = parser.parse_args()
 
 	#warnings look messy
@@ -335,4 +338,11 @@ if __name__ == '__main__':
 			sequences.append(inp)
 			labels.append('Sequence %d' % n)
 		n += 1
-	what(sequences, labels=labels, imgfmt=args.t, directory=args.d, filename=args.o, title=args.l, dpi=args.r, hide=args.q, viewer=args.a, overwrite=True, bars=args.bars, color=args.color, statistics=args.statistics, offset=args.offset, manual_tms=parse_csranges(args.manual_tms))
+	wedges, bars = [], []
+	if args.walls: 
+		wedges += parse_wranges(args.walls)
+		bars += [x[0] for x in wedges]
+	if args.wedges: wedges += parse_wranges(args.wedges)
+	if args.bars: bars += [int(x) for x in args.bars]
+
+	what(sequences, labels=labels, imgfmt=args.t, directory=args.d, filename=args.o, title=args.l, dpi=args.r, hide=args.q, viewer=args.a, overwrite=True, bars=bars, color=args.color, statistics=args.statistics, offset=args.offset, manual_tms=parse_csranges(args.manual_tms), wedges=wedges)

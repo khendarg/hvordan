@@ -38,7 +38,9 @@ You can also run the script without arguments (or with -h or --help) to display 
        (positional) sequences or filenames
     -m manually add TMSs
 
-## Manual TMS specification
+## Supported annotation features
+
+### Manual TMS specification
 
 TMS sets for different sequences are specified by space-separated comma-separated ranges. The following example specifies a TMS spanning residues 1-20 for the first/only sequence in seq1.fa:
 
@@ -57,3 +59,11 @@ This specifies TMSs for the second sequence but leaves the first to HMMTOP:
 ```
 ./quod.py seq1.fa seq2.fa -m skip 1-20,30-50,60-80
 ```
+
+### Vertical bars
+
+Use space-separated x-values with `-b` to get vertical bars.
+
+### Wedges/arrowheads
+
+Use space-separated comma-separated `x,length` pairs with `-w` to get wedges/arrowheads. Negative lengths result in left-pointing wedges. Use `-W` to automatically draw bars for each wedge.
