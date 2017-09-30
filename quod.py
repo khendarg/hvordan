@@ -133,7 +133,7 @@ def tms_color(n, color='auto'):
 		if r == 0: return 'orange'
 		elif r == 1: return 'cyan'
 
-def what(sequences, labels=None, imgfmt='png', directory=None, filename=None, title=False, dpi=80, hide=True, viewer=None, bars=[], color='auto', offset=0, statistics=False, overwrite=False, manual_tms=None):
+def what(sequences, labels=None, imgfmt='png', directory=None, filename=None, title=False, dpi=80, hide=True, viewer=None, bars=[], color='auto', offset=0, statistics=False, overwrite=False, manual_tms=None, wedges=None):
 	#generalized from gblast3.py but mostly the same...
 	if not labels:
 		labels = []
@@ -205,39 +205,46 @@ def what(sequences, labels=None, imgfmt='png', directory=None, filename=None, ti
 	for i, seq in enumerate(sequences):
 		hseq = hydropathies[i]
 
-		plt.plot(X[:len(hseq)]+offset, hseq, linewidth=1, label=labels[i], color=hydro_color(i, color))
+		if type(color) is int:
+			plt.plot(X[:len(hseq)]+offset, hseq, linewidth=1, label=labels[i], color=hydro_color(color))
+			for tms in top[i]: plt.axvspan(tms[0]+offset, tms[1]+offset, facecolor=tms_color(color), alpha=0.25)
+		else:
+			plt.plot(X[:len(hseq)]+offset, hseq, linewidth=1, label=labels[i], color=hydro_color(i, color))
+			for tms in top[i]: plt.axvspan(tms[0]+offset, tms[1]+offset, facecolor=tms_color(i, color), alpha=0.25)
 
 		#...and last but greatest, this, which eliminates crucial logic from gblast3.py
 		#I can only assume it makes sure TMSs land on the right spots in alignments with lots of -'s and Xs
 		#Mostly, I don't quite know how self.queryhmg or self.tcdbhmg return their results
 		#for tms in top[i]: plt.axvspan(tms[0], tms[1], facecolor=color(i, color), alpha=0.6/len(hydropathies))
-		for tms in top[i]: plt.axvspan(tms[0]+offset, tms[1]+offset, facecolor=tms_color(i, color), alpha=0.25)
 
 	if bars:
 		for x in bars: plt.axvline(x=x, color='black')
+	if wedges:
+		for wedge in wedges:
+			plt.annotate('', xy=(wedge[0]+wedge[1]*maxl*0.01, 2), xytext=(wedge[0], 2), arrowprops={'arrowstyle':'wedge', 'facecolor':'black'})
 
 	fig = plt.gcf()
 	fig.set_size_inches(15, 3)
 	#f = tempfile.NamedTemporaryFile()
 	#f.close()
 	#plt.legend(bbox_to_anchor=(1.05, 1), loc=2, borderaxespad=0.)
-	legendstuff = []
-	legendtext = []
-	if len(sequences) >= 2 and statistics:
-		done = []
-		for i, h1 in enumerate(hydropathies):
-			done.append(i)
-			for j, h2 in enumerate(hydropathies):
-				if j in done: continue
-				else:
-					l = min(len(h1), len(h2))
-					legendstuff.append(matplotlib.patches.Rectangle((0, 0), 1, 1, fc='w', fill=0, edgecolor='none', linewidth=0))
-					r = np.corrcoef(h1[:l], h2[:l])[0,1]
-					text = '$R_{%d,%d} = %0.3f$' % (i, j, r)
-					text += '\n$R_{%d,%d}^{2} = %0.3f$' % (i, j, r**2)
-					text += '\n$\overline{\Delta\upsilon_{%d,%d}} = %0.2f$' % (i, j, np.mean(h2[:l]-h1[:l]))
-					legendtext.append(text)
-		plt.legend(legendstuff, tuple(legendtext))
+	#legendstuff = []
+	#legendtext = []
+	#if len(sequences) >= 2 and statistics:
+	#	done = []
+	#	for i, h1 in enumerate(hydropathies):
+	#		done.append(i)
+	#		for j, h2 in enumerate(hydropathies):
+	#			if j in done: continue
+	#			else:
+	#				l = min(len(h1), len(h2))
+	#				legendstuff.append(matplotlib.patches.Rectangle((0, 0), 1, 1, fc='w', fill=0, edgecolor='none', linewidth=0))
+	#				r = np.corrcoef(h1[:l], h2[:l])[0,1]
+	#				text = '$R_{%d,%d} = %0.3f$' % (i, j, r)
+	#				text += '\n$R_{%d,%d}^{2} = %0.3f$' % (i, j, r**2)
+	#				text += '\n$\overline{\Delta\upsilon_{%d,%d}} = %0.2f$' % (i, j, np.mean(h2[:l]-h1[:l]))
+	#				legendtext.append(text)
+	#	plt.legend(legendstuff, tuple(legendtext))
 	plt.savefig(filename, dpi=dpi, format=imgfmt, bbox_inches='tight', pad_inches=0.003)
 	if VERBOSITY != VERBOSITY: 
 		if len(labels) == 1: print('%s: %s' % (filename, labels[0]))
