@@ -183,7 +183,7 @@ def quod_set(seqids, sequences, indir, outdir, dpi=300, force=False, bars=[], pr
 	quod.what([sequences[seqids[3]]], title=seqids[3], imgfmt='png', directory=outdir, filename=(seqids[3] + '_' + seqids[2] + '.png'), dpi=dpi, hide=1, bars=bars[3], color='blue')
 
 
-def build_html(bc, indir, blasts, outdir='hvordan_out/html', filename='test.html'):
+def build_html(bc, indir, blasts, outdir='hvordan_out/html', filename='test.html', lastpair=None, nextpair=None):
 
 	if not os.path.isdir(outdir): os.mkdir(outdir)
 	if not os.path.isdir(outdir + '/assets'): os.mkdir(outdir + '/assets')
@@ -205,6 +205,11 @@ def build_html(bc, indir, blasts, outdir='hvordan_out/html', filename='test.html
 	out += '\n</head><body>'
 
 	out += '\n<h1>%s</h1>' % title
+	if lastpair or nextpair:
+		out += '\n'
+		if lastpair: out += '<a href="%s_vs_%s.html">&#9664; %s vs %s</a> ' % (lastpair[1], lastpair[2], lastpair[1], lastpair[2])
+		if nextpair: out += '<a href="%s_vs_%s.html">%s vs %s &#9654;</a> ' % (nextpair[1], nextpair[2], nextpair[1], nextpair[2])
+		out += '<br/>'
 	out += '\n<h2>Table of contents</h2>'
 	out += '\n<button class="showhide" id="tocsh" onclick="toggle_section(\'toc\', \'tocsh\')">Hide</button>'
 
@@ -301,8 +306,8 @@ def identifind(seq1, seq2):
 	#Seq1 = Bio.Seq.Seq(seq1, Bio.Alphabet.ProteinAlphabet())
 	if seq1.startswith('>'): seq1 = seq1[seq1.find('\n')+1:]
 	if seq2.startswith('>'): seq2 = seq2[seq2.find('\n')+1:]
-	seq1 = re.sub('[^ABCDEFGHIJKLMNOPQRSTUVWXYZ]', '', seq1.upper())
-	seq2 = re.sub('[^ABCDEFGHIJKLMNOPQRSTUVWXYZ]', '', seq2.upper())
+	seq1 = re.sub('[^ACDEFGHIKLMNPQRSTVWY]', '', seq1.upper())
+	seq2 = re.sub('[^ACDEFGHIKLMNPQRSTVWY]', '', seq2.upper())
 	#Seq1 = Bio.Seq.Seq(seq1, Bio.Alphabet.generic_protein)
 	#Seq2 = Bio.Seq.Seq(seq2, Bio.Alphabet.generic_protein)
 
@@ -430,15 +435,19 @@ def summarize(p1d, p2d, outdir, minz=15, maxz=None, dpi=100, force=False, email=
 		blasts[tuple(pair)] = [blastem(pair[1], indir=outdir, outdir=outdir, dpi=dpi), blastem(pair[2], indir=outdir, outdir=outdir, dpi=dpi, force=force, seqbank=seqbank, tmcount=tmcount)]
 
 	if VERBOSITY: info('Generating HTML')
-	for pair in fulltrans:
+	for i, pair in enumerate(fulltrans):
 		pairseqs = []
 		for seq in pair: 
 			try: pairseqs.append(seqs[seq])
 			except KeyError: 
 				with open('%s/sequences/%s.fa' % (outdir, seq)) as f: pairseqs.append(f.read())
 
-		build_html(pair + tuple(pairseqs) + tuple(stats[pair[1]][pair[2]]), indir=outdir, blasts=blasts[tuple(pair)], outdir=(outdir + '/html'), filename='%s_vs_%s.html' % tuple(pair[1:3]))
-		
+		if i > 0: lastpair = fulltrans[i-1]
+		else: lastpair = None
+		if i < (len(fulltrans)-1): nextpair = fulltrans[i+1]
+		else: nextpair = None
+		build_html(pair + tuple(pairseqs) + tuple(stats[pair[1]][pair[2]]), indir=outdir, blasts=blasts[tuple(pair)], outdir=(outdir + '/html'), filename='%s_vs_%s.html' % tuple(pair[1:3]), lastpair=lastpair, nextpair=nextpair)
+
 if __name__ == '__main__':
 
 	import argparse
