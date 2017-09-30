@@ -69,6 +69,7 @@ def parse_p2report(p2report, minz=15, maxz=None, musthave=None, thispair=None):
 
 	bcs = []
 	alnregs = {}
+	stats = {}
 	for l in p2report.split('\n'):
 		line += 1
 		if line == 1:
@@ -88,8 +89,10 @@ def parse_p2report(p2report, minz=15, maxz=None, musthave=None, thispair=None):
 				bcs[fams[1]].append(ls[1])
 				try: alnregs[ls[0]][ls[1]] = (ls[6], ls[7])
 				except KeyError: alnregs[ls[0]] = {ls[1]:(ls[6], ls[7])}
+				try: stats[ls[0]][ls[1]] = ls[2:6]
+				except KeyError: stats[ls[0]] = {ls[1]:ls[2:6]}
 			
-	return fams, bcs, alnregs
+	return fams, bcs, alnregs, stats
 
 def seek_initial(p1d, bcs):
 	hits = {}
@@ -191,7 +194,7 @@ def build_html(bc, indir, blasts, outdir='hvordan_out/html', filename='test.html
 		f.close()
 	if not os.path.isfile(outdir + '/assets/nice.css'):
 		f = open(outdir + '/assets/nice.css', 'w')
-		f.write('body {\n\tfont-family: sans-serif;\n\theight: 100%;\n}\ndiv {\n\tdisplay: block;\n}\ndiv.tcblast {\n\tmax-width: 1500px;\n}\ndiv.fullblast {\n\twidth: 50%;\n\tfloat: left;\n}\ndiv.tabular1 {\n\twidth: 50%;\n\tfloat: left;\n\theight: 100%;\n}\ndiv.tabular2 {\n\twidth: 50%;\n\tfloat: right;\n\theight: 100%;\n}\nimg.bluebarplot {\n\tmax-width: 100%;\n\theight: auto;\n}\n.clear { clear: both; }\n.scrollable {\n\toverflow-y: scroll;\n}\n.resizeable {\n\tresize: vertical;\n\toverflow: auto;\n\tborder-bottom: 1px solid gray;\n\tdisplay: block;\n}\n.bluebars {\n\theight: 25vh;\n}\n.pairwise {\n\theight: 50vh;\n}\n.whatall {\n\theight: 50vh;\n}\n.whataln {\n\twidth: 100%;\n}\n#seqs {\n\tdisplay: none;\n}\n\n\n\n.summtbl {\n\tfont-family: monospace, courier;\n\tfont-size: 75%;\n}\n.oddrow {\n\tbackground-color: #d8d8d8;\n}\ntd {\n\tpadding-right: 1em;\n}\n.red {\n\tcolor: red;\n}\nimg {\n\tborder: 1pt solid black;\n}\n.monospace {\n\tfont-family: monospace;\n}')
+		f.write('body {\n\tfont-family: sans-serif;\n\theight: 100%;\n}\ndiv {\n\tdisplay: block;\n}\ndiv.tcblast {\n\tmax-width: 1500px;\n}\ndiv.fullblast {\n\twidth: 50%;\n\tfloat: left;\n}\ndiv.tabular1 {\n\twidth: 49%;\n\tfloat: left;\n\theight: 100%;\n}\ndiv.tabular2 {\n\twidth: 49%;\n\tfloat: right;\n\theight: 100%;\n}\nimg.bluebarplot {\n\tmax-width: 100%;\n\theight: auto;\n}\n.clear { clear: both; }\n.scrollable {\n\toverflow-y: scroll;\n}\n.resizeable {\n\tresize: vertical;\n\toverflow: auto;\n\tborder: 1px solid gray;\n\tdisplay: block;\n\tpadding-bottom: 1ex;\n}\n.bluebars {\n\theight: 25vh;\n}\n.pairwise {\n\theight: 50vh;\n}\n.whatall {\n\theight: 50vh;\n}\n.whataln {\n\twidth: 100%;\n}\n#seqs {\n\tdisplay: none;\n}\n\n\n\n.summtbl {\n\tfont-family: monospace, courier;\n\tfont-size: 75%;\n}\n.oddrow {\n\tbackground-color: #d8d8d8;\n}\ntd {\n\tpadding-right: 1em;\n}\n.red {\n\tcolor: red;\n}\nimg {\n\tborder: 1pt solid black;\n}\n.monospace {\n\tfont-family: monospace;\n}')
 		f.close()
 	#bc := [WP_1234567890, AP_1234567890]
 	title = 'HVORDAN summary: %s vs %s' % tuple(bc[1:3])
@@ -205,13 +208,23 @@ def build_html(bc, indir, blasts, outdir='hvordan_out/html', filename='test.html
 	out += '\n<h2>Table of contents</h2>'
 	out += '\n<button class="showhide" id="tocsh" onclick="toggle_section(\'toc\', \'tocsh\')">Hide</button>'
 
-	out += '\n<div class="toc" id="toc"> <ol> <li><a href="#summary">Summary</a></li> <li><a href="#pairwise">Pairwise</a></li> <li><a href="#abcd">ABCD hydropathy plots</a></li> <li><a href="#bc">BC hydropathy plot</a></li> <li><a href="sequences">Sequences</a></li> </ol> </div>'
+	out += '\n<div class="toc" id="toc"> <ol> <li><a href="#summary">Summary</a></li> <li><a href="#tcsummary">TCBLAST Summary</a></li> <li><a href="#pairwise">Pairwise</a></li> <li><a href="#abcd">ABCD hydropathy plots</a></li> <li><a href="#bc">BC hydropathy plot</a></li> <li><a href="sequences">Sequences</a></li> </ol> </div>'
+
+	#stats
+	out += '\n<h2>Summary</h2>'
+	out += '\n<button class="showhide" id="summarysh" onclick="toggle_section(\'summary\', \'summarysh\')">Hide</button>'
+	out += '\n<div class="whataln" id="summary">'
+	out += '\nSS Z-score: %s<br/>' % bc[8]
+	out += '\nGSAT Z-score: %s<br/>' % bc[9]
+	out += '\nSubject align-length: %s<br/>' % bc[10]
+	out += '\nTarget align-length: %s<br/>' % bc[11]
+	out += '\n</div>'
 
 	out += '\n<h2>TCBLAST</h2>'
 
 	#bluebars
 	out += '\n<button class="showhide" id="tcblastsh" onclick="toggle_section(\'tcblast\', \'tcblastsh\')">Hide</button>'
-	out += '\n<div class="tcblast" id="tcblast"><a name="summary"><h3>Summary</h3></a>'
+	out += '\n<div class="tcblast" id="tcblast"><a name="tcsummary"><h3>TCBLAST Summary</h3></a>'
 	out += '\n<div class="resizeable bluebars"><div class="scrollable tabular1">'
 	out += '\n<img class="bluebarplot" src="../graphs/TCBLAST_%s.png"/>' % bc[1]
 	out += '\n</div><div class="scrollable tabular2">'
@@ -272,12 +285,12 @@ def get_fulltrans(fams, bcs, abcd):
 		fulltrans.append(tuple([origs[0][p[0]][1], p[0], p[1], origs[1][p[1]][1]]))
 	return fulltrans
 
-def blastem(acc, indir, outdir, dpi=300):
+def blastem(acc, indir, outdir, dpi=300, force=False, seqbank={}, tmcount={}):
 	f = open(indir + '/sequences/' + acc + '.fa')
 	seq= f.read()
 	f.close()
 
-	return tcblast.til_warum(seq, outfile='%s/graphs/TCBLAST_%s.png' % (outdir, acc), title=acc, dpi=dpi, outdir='%s/blasts' % outdir)
+	return tcblast.til_warum(seq, outfile='%s/graphs/TCBLAST_%s.png' % (outdir, acc), title=acc, dpi=dpi, outdir='%s/blasts' % outdir, clobber=force, seqbank=seqbank, tmcount=tmcount)
 
 	#fn = outdir + '/' + filename + '.png'
 
@@ -348,27 +361,12 @@ def summarize(p1d, p2d, outdir, minz=15, maxz=None, dpi=100, force=False, email=
 	p2report = f.read()
 	f.close()
 
-	fams, bcs, alnregs = parse_p2report(p2report, minz, maxz, musthave=musthave, thispair=thispair)
+	fams, bcs, alnregs, stats = parse_p2report(p2report, minz, maxz, musthave=musthave, thispair=thispair)
 
 	if VERBOSITY: info('Selecting best A-B C-D pairs')
 	abcd = seek_initial(p1d, bcs)
 	fulltrans = get_fulltrans(fams, bcs, abcd)
 
-	#allseqs = set()
-	#for fam in abcd:
-	#	for bc in abcd[fam]:
-	#		allseqs.add(bc)
-	#		allseqs.add(abcd[fam][bc][1])
-	#for fam in abcd:
-	#	
-	#	for bc in abcd[fam]:
-	#		allseqs.append(bc)
-	#		bars.append(abcd[fam][bc][3])
-	#		allseqs.append(abcd[fam][bc][1])
-	#		bars.append(abcd[fam][bc][2])
-	#		print(bc, abcd[fam][bc][1], abcd[fam][bc])
-	#		print(bc, bars)
-	#		#C D B A 
 	fetchme = set()
 	pairstats = {}
 	for fam in abcd:
@@ -410,7 +408,6 @@ def summarize(p1d, p2d, outdir, minz=15, maxz=None, dpi=100, force=False, email=
 
 	#make graphs for all individual full-lengthers
 	if VERBOSITY: info('Generating QUOD plots')
-	#quod_indiv(allseqs, outdir + '/sequences', outdir + '/graphs', dpi=dpi, force=force, bars=bars)
 
 	for x in allseqs:
 		try: seqs[x]
@@ -418,20 +415,19 @@ def summarize(p1d, p2d, outdir, minz=15, maxz=None, dpi=100, force=False, email=
 			with open('%s/sequences/%s.fa' % (outdir, x)) as f: seqs[x] = f.read()
 
 	for i in range(0, len(allseqs), 4):
-		# ('%s_%s_%s_%s_' % tuple(allseqs[i:i+4]))
-		#quod_indiv(tuple(allseqs[i:i+4]), outdir + '/sequences', outdir + '/graphs/' + ('%s_vs_%s' % (allseqs[i], allseqs[i+3])), dpi=dpi, force=force, bars=bars)
 		quod_set(tuple(allseqs[i:i+4]), seqs, outdir + '/sequences', outdir + '/graphs/', dpi=dpi, force=force, bars=bars[i:i+4])
 
 	#make graphs for all pairs of sequences
-	#%s_vs_%s.png % (B, C)
 	for s1 in alnregs: 
 		for s2 in alnregs[s1]: 
 			quod.what(alnregs[s1][s2], labels=[s1,s2], title='%s (red) vs %s (blue)' % (s1,s2), imgfmt='png', directory=outdir+'/graphs', filename='%s_vs_%s.png' % (s1,s2), dpi=dpi, hide=1)
 
 	if VERBOSITY: info('Generating TCBLAST plots')
 	blasts = {}
+	tmcount = {}
+	seqbank = {}
 	for pair in fulltrans:
-		blasts[tuple(pair)] = [blastem(pair[1], indir=outdir, outdir=outdir, dpi=dpi), blastem(pair[2], indir=outdir, outdir=outdir, dpi=dpi)]
+		blasts[tuple(pair)] = [blastem(pair[1], indir=outdir, outdir=outdir, dpi=dpi), blastem(pair[2], indir=outdir, outdir=outdir, dpi=dpi, force=force, seqbank=seqbank, tmcount=tmcount)]
 
 	if VERBOSITY: info('Generating HTML')
 	for pair in fulltrans:
@@ -441,7 +437,7 @@ def summarize(p1d, p2d, outdir, minz=15, maxz=None, dpi=100, force=False, email=
 			except KeyError: 
 				with open('%s/sequences/%s.fa' % (outdir, seq)) as f: pairseqs.append(f.read())
 
-		build_html(pair + tuple(pairseqs), indir=outdir, blasts=blasts[tuple(pair)], outdir=(outdir + '/html'), filename='%s_vs_%s.html' % tuple(pair[1:3]))
+		build_html(pair + tuple(pairseqs) + tuple(stats[pair[1]][pair[2]]), indir=outdir, blasts=blasts[tuple(pair)], outdir=(outdir + '/html'), filename='%s_vs_%s.html' % tuple(pair[1:3]))
 		
 if __name__ == '__main__':
 

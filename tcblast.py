@@ -158,7 +158,7 @@ def plot_tab(tab, top, filename, maxaln=50, dpi=100, imgfmt='png', overwrite=Fal
 
 #OPTIMIZE ME: only parse once instead of every time
 
-def summary(tab, html=False, outdir=None, prefix=''):
+def summary(tab, html=False, outdir=None, prefix='', seqbank={}, tmcount={}):
 	out = ''
 	if html == 1: out += '<pre>'
 	#elif html == 2: out += '<table style="font-family: monospace, courier; font-size: 75%">'
@@ -169,9 +169,13 @@ def summary(tab, html=False, outdir=None, prefix=''):
 		if not l.strip(): continue
 		hit = l.split()[1]
 		#if 'TC-DB' in hit: hit = hit.split('|')[3] + '-' + hit.split('|')[2]
-		seq = subprocess.check_output(['blastdbcmd', '-db', 'tcdb', '-target_only','-entry', hit]).decode('utf-8')
-		tmss = parse_hmmtop(hmmtop(seq, outdir=outdir, silent=True))
-		ntmss = len(tmss)
+		try: seq = seqbank[hit]
+		except KeyError:
+			seq = seqbank[hit] = subprocess.check_output(['blastdbcmd', '-db', 'tcdb', '-target_only','-entry', hit]).decode('utf-8')
+		try: ntmss = tmcount[hit]
+		except KeyError:
+			tmss = parse_hmmtop(hmmtop(seq, outdir=outdir, silent=True))
+			ntmss = tmcount[hit] = len(tmss)
 
 		tcid, acc = tuple(hit.split('-'))
 
@@ -296,12 +300,12 @@ def fmt_pairw(tab, pairw, html=0, prefix=''):
 	#return pairw
 	return out
 
-def til_warum(seq, outfile, title='Unnamed', dpi=100, html=2, outdir=None):
+def til_warum(seq, outfile, title='Unnamed', dpi=100, html=2, outdir=None, clobber=False, seqbank={}, tmcount={}):
 
 	tab, pairw = blast(seq)
 
-	top = hmmtop(seq, outdir=outdir)
-	plot_tab(tab, top, outfile, dpi=dpi)
+	if not clobber and os.path.isfile(outfile):  pass
+	else: plot_tab(tab, hmmtop(seq, outdir=outdir), outfile, dpi=dpi, overwrite=clobber)
 
 	if not outfile.startswith('/'): relative = outfile[outfile.find('/')+1:]
 	else: relative = outfile
@@ -313,7 +317,8 @@ def til_warum(seq, outfile, title='Unnamed', dpi=100, html=2, outdir=None):
 	#out += '<html><head><title>%s</title><link href="nice.css" type="text/css" rel="stylesheet"/></head><body>' % title
 	outi = ''
 	out += '<hr/>'
-	out += summary(tab, html=html, outdir=outdir, prefix=title)
+
+	out += summary(tab, html=html, outdir=outdir, prefix=title, tmcount=tmcount)
 	out += '<hr/>'
 
 	out += '<pre>'
