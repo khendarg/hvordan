@@ -7,20 +7,47 @@ HTML Visualization Of Reasonable, Decent Alignment Networks
 
 This script generates HTML reports of individual Protocol2 results.
 
-### Dependencies:
+## Summary
+This script generates HTML reports with hydropathy plots and representations of TCDB BLAST hits (mostly replicating the [TCDB BLAST tool](http://www.tcdb.org/progs/blast.php)) for _Protocol2_ results. 
+This can be done in bulk on entire sets of _Protocol2_ results, on specific genes, on specific pairs of genes, or on specific ranges of GSAT Z-scores.
 
- * matplotlib
- * NCBI blast
- * [curl](https://curl.haxx.se/)
+## Dependencies
+The following programs need to be available in your path for this program to run properly:
 
-### Instructions
+1. **_blast+ 2.4.0 to 2.6.0_**  
+Other versions of blast may require minor adaptations. 
+Visit the
+ [download site](https://blast.ncbi.nlm.nih.gov/Blast.cgi?PAGE_TYPE=BlastDocs&DOC_TYPE=Download). 
+
+2. **_TCDB protein database_**  
+Given that blastdbcmd runs locally, the TCDB database must be available locally through the environment variable _$BLASTDB_. 
+If possible, use [extractFamily.pl](https://github.com/SaierLaboratory/TCDBtools/blob/master/scripts/extractFamily.pl) to download the TCDB BLAST database:
+```bash
+extractFamily.pl -i all -f blast
+```
+Otherwise, you can manually download [all TCDB sequences](http://www.tcdb.org/public/tcdb) from the TCDB and run ```makeblastdb -in tcdb.fasta -out tcdb -dbtype prot```, but this script was not tested with such manually downloaded BLAST databases. 
+
+3. **_Python 2.7+_**  
+Visit the [official website](https://www.python.org/). 
+This program was not tested with more recent versions of Python but was implemented with some forward compatibility.
+
+4. **_Matplotlib 1.5.1-2.0.0+_**  
+Visit the [official website](https://matplotlib.org/).
+While not required for hvordan.py itself, Matplotlib is required for the graph plotting modules, and automating graph generation is the entire point of the script.
+
+5. **_Biopython 1.70+_**
+Visit the [official website](http://biopython.org/).
+For now, index-finding for the ABCD plots will rely on pairwise2 on account of indices not being available on report.tbl.
+
+## Instructions
 
 1. Move or symlink hvordan.py into the same directory where quod.py and tcblast.py are stored.
-2. (Strongly recommended) Keep only the first six columns of each famXpander results table and move them all into the same directory. 
+
+2. (Strongly recommended) Keep only the first twelve columns of each famXpander results table and move them all into the same directory. 
 ```bash
 mkdir ../famXpander_trimmed
 for DIR in `ls`
-    do cut -f1-6 $DIR/psiblast.tbl > ../famXpander_trimmed/$DIR.tbl
+    do cut -f1-12 $DIR/psiblast.tbl > ../famXpander_trimmed/$DIR.tbl
 done
 ```
 Failing that, symlink all of the table files into the same directory. Do note that the bottleneck in report generation is parsing these tables. **Avoid this if you value your time!**
@@ -45,6 +72,23 @@ makeblastdb -in tcdb.fasta -out tcdb -dbtype prot
 ```bash
 hvordan.py --p1d famXpander_trimmed --p2d 1.X.1_vs_2.Y.1/1.X.1_vs_2.Y.1 
 ```
+
+## Command line options
+The following options are available. 
+You can also run the script without arguments (or with -h or --help) to display the options:
+
+    --p1d  directory containing _famXpander_ results (default: .)
+    --p2d  directory containing _Protocol2_ results (default: .)
+    -o     output directory (default: hvordan_out)
+	-f     families to inspect, required if using --p2d on root _Protocol2_ directories
+	-z     minimum Z-score (default: 15)
+    -Z     maximum Z-score (default: None)
+    -c     force redownloads/redraws/regenerations (not fully implemented)
+	-r     resolution of plots in DPI (default: 100)
+    -e     Email address the NCBI can contact (default: $ENTREZ_EMAIL if set)
+	-i     inspects only alignments containing at least one of these accessions
+    -p     inspects only this specific pair of accessions
+
 ## tcblast
 Making cheap knockoffs of popular tools since 2016!
 
@@ -54,3 +98,5 @@ Tcblast is not currently standalone.
 Questionable Utility Of Doom
 
 Makes average hydropathy graphs from sequences and sequence-containing files
+<!--General layout and various text copied from https://github.com/SaierLaboratory/TCDBtools/blob/master/manuals/famXpander.md-->
+
