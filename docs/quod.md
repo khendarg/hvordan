@@ -38,7 +38,7 @@ You can also run the script without arguments (or with -h or --help) to display 
        (positional) sequences or filenames
     -m manually add TMSs
 
-##Manual TMS specification
+## Manual TMS specification
 
 TMS sets for different sequences are specified by space-separated comma-separated ranges. The following example specifies a TMS spanning residues 1-20 for the first/only sequence in seq1.fa:
 
