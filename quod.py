@@ -215,7 +215,6 @@ def what(sequences, labels=None, imgfmt='png', directory=None, filename=None, ti
 	for i, seq in enumerate(sequences):
 		hseq = hydropathies[i]
 
-		print(top[i])
 		if color == 'auto': c = i
 		else: c = color
 		plt.plot(X[:len(hseq)]+offset, hseq, linewidth=1, label=labels[i], color=hydro_color(c))
