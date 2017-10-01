@@ -199,9 +199,9 @@ def summary(tab, html=False, outdir=None, prefix='', seqbank={}, tmcount={}, sil
 
 		#COLUMN 2: TMSs
 		if html < 2: out += '\t'
-		if html >= 2: out += '<td>'
+		if html >= 2: out += '<td><a href="../blasts/%s_%s.top">' % (tcid, acc)
 		out += '%d TMSs' % ntmss
-		if html >= 2: out += '</td>'
+		if html >= 2: out += '</a></td>'
 
 		#COLUMN 3: TCID
 		if html < 2: out += '\t'
