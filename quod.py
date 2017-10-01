@@ -89,13 +89,14 @@ def hydro(gseq, window=19):
 			newcount +=1
 	return np.array(newhydro)
 
-def hmmtop(sequence):
+def hmmtop(sequence, silent=False):
 	#Kevin's standard HMMTOP invocation
 
 	sequence = sequence.replace('-', '')
 	if not sequence.startswith('>'): sequence = '>seq\n' + sequence
-	f = subprocess.Popen(['hmmtop', '-sf=FAS', '-is=pseudo', '-pi=spred', '-if=--'], stdin=subprocess.PIPE, stdout=subprocess.PIPE)
+	f = subprocess.Popen(['hmmtop', '-sf=FAS', '-is=pseudo', '-pi=spred', '-if=--'], stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 	hmmtopout, err = f.communicate(input=sequence)
+	print(err.strip(), file=sys.stderr)
 
 	indices = map(int, re.findall('((?:[0-9]+\s+)+)$', hmmtopout)[0].split()[1:])
 	tmss = []
@@ -121,7 +122,7 @@ def tms_color(n):
 		elif r == 2: return 'darkgreen'
 	else: return n
 
-def what(sequences, labels=None, imgfmt='png', directory=None, filename=None, title=False, dpi=80, hide=True, viewer=None, bars=[], color='auto', offset=0, statistics=False, overwrite=False, manual_tms=None, wedges=None, ywedge=2, wedgelength=1, legend=False):
+def what(sequences, labels=None, imgfmt='png', directory=None, filename=None, title=False, dpi=80, hide=True, viewer=None, bars=[], color='auto', offset=0, statistics=False, overwrite=False, manual_tms=None, wedges=None, ywedge=2, legend=False, window=19, silent=False):
 	#wedges: [(x1, dx1), (x2, dx2), ...]
 
 	try: color = int(color)
@@ -159,36 +160,23 @@ def what(sequences, labels=None, imgfmt='png', directory=None, filename=None, ti
 	top = []
 
 	for seq in sequences:
-		hydropathies.append(hydro(seq))
+		hydropathies.append(hydro(seq, window))
 
 
 		if manual_tms: 
 			tmss = []
 			tms = manual_tms.pop(0)
 			if tms[0]: tmss += (tms)
-			else: tmss = [(tms, color) for tms in hmmtop(seq)]
+			else: tmss = [(tms, color) for tms in hmmtop(seq, silent=silent)]
 			top.append(tmss)
 		else:
-			top.append([(tms, color) for tms in hmmtop(seq)])
+			top.append([(tms, color) for tms in hmmtop(seq, silent=silent)])
 
 		if minl is None: minl = len(hydropathies[-1])
 		elif len(hydropathies[-1]) < minl: minl = len(hydropathies[-1])
 
 		if maxl == None: maxl = len(hydropathies[-1])
 		elif len(hydropathies[-1]) > maxl: maxl = len(hydropathies[-1])
-		#if not manual_tms: top.append((hmmtop(seq), color))
-		#else: 
-		#	tms = manual_tms.pop(0)
-		#	if tms: top.append(tms)
-		#	else: top.append((hmmtop(seq), color))
-		#
-		#hydropathies.append(hydro(seq))
-
-		#if minl == None: minl = len(hydropathies[-1])
-		#elif len(hydropathies[-1]) < minl: minl = len(hydropathies[-1])
-
-		#if maxl == None: maxl = len(hydropathies[-1])
-		#elif len(hydropathies[-1]) > maxl: maxl = len(hydropathies[-1])
 
 	halen = len(hydropathies[0])
 
@@ -201,7 +189,7 @@ def what(sequences, labels=None, imgfmt='png', directory=None, filename=None, ti
 	plt.ylim(-3, 3)
 	#...and this one too...
 	#plt.xlim(right=len(sequences[0]))
-	plt.xlim(left=offset, right=maxl+offset)
+	plt.xlim(left=offset, right=maxl+offset+window)
 	if title: plt.suptitle(title)
 	else:
 		if len(labels) == 1: plt.suptitle(labels[0])

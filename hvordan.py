@@ -84,7 +84,13 @@ def parse_p2report(p2report, minz=15, maxz=None, musthave=None, thispair=None):
 				#bcs.append(ls[:2])
 				if musthave and ls[0] not in musthave and ls[1] not in musthave: continue
 				if thispair:
-					if ls[:2] != thispair and ls[:2:-1] != thispair: continue
+					found = 0
+					for pair in thispair:
+						if ls[:2] != pair and ls[:2][::-1] != pair: continue
+						else: 
+							found = 1
+							break
+				if not found: continue
 				bcs[fams[0]].append(ls[0])
 				bcs[fams[1]].append(ls[1])
 				try: alnregs[ls[0]][ls[1]] = (ls[6], ls[7])
@@ -149,40 +155,22 @@ def clean_fetch(accs, outdir, force=False, email=None):
 		f.write(fastas[x])
 		f.close()
 
-def quod_indiv(sequences, indir, outdir, dpi=300, force=False, bars=[]):
-
-	if not os.path.isdir(outdir): 
-		try: os.mkdir(outdir)
-		#FIXME evil hack
-		except OSError: os.system('mkdir -p %s' % outdir)
-
-	for x in zip(sequences, bars): 
-		f = open(indir + '/%s.fa' % x[0])
-		seq = f.read()
-		f.close()
-		title = x[0]
-		seq = seq[seq.find('\n')+1:].replace('\n', '')
-
-		if not force and os.path.isfile(outdir + x[0] + '.png'): continue
-
-		quod.what([seq], title=title, imgfmt='png', directory=outdir, filename=(x[0]+'.png'), dpi=dpi, hide=1, bars=x[1])
-
-def quod_set(seqids, sequences, indir, outdir, dpi=300, force=False, bars=[], prefix='', suffix=''):
+def quod_set(seqids, sequences, indir, outdir, dpi=300, force=False, bars=[], prefix='', suffix='', silent=False):
 	if not os.path.isdir(outdir): os.mkdir(outdir)
 
-	wedges = [[(x, 2 * (0.5 - (i % 2))) for i, x in enumerate(span)] for span in bars]
+	wedges = [[[x, 2 * (0.5 - (i % 2))] for i, x in enumerate(span)] for span in bars]
 
 	#Draw A: barred by B
-	quod.what([sequences[seqids[0]]], title=seqids[0], imgfmt='png', directory=outdir, filename=(seqids[0] + '_' + seqids[1] + '.png'), dpi=dpi, hide=1, bars=bars[0], wedges=wedges[0])
+	quod.what([sequences[seqids[0]]], title=seqids[0], imgfmt='png', directory=outdir, filename=(seqids[0] + '_' + seqids[1] + '.png'), dpi=dpi, hide=1, bars=bars[0], wedges=wedges[0], silent=silent)
 
 	#Draw B: barred by C
-	quod.what([sequences[seqids[1]]], title=seqids[1], imgfmt='png', directory=outdir, filename=(seqids[1] + '_' + seqids[2] + '.png'), dpi=dpi, hide=1, bars=bars[1], wedges=wedges[1])
+	quod.what([sequences[seqids[1]]], title=seqids[1], imgfmt='png', directory=outdir, filename=(seqids[1] + '_' + seqids[2] + '.png'), dpi=dpi, hide=1, bars=bars[1], wedges=wedges[1], silent=True)
 
 	#Draw C: barred by B
-	quod.what([sequences[seqids[2]]], title=seqids[2], imgfmt='png', directory=outdir, filename=(seqids[2] + '_' + seqids[1] + '.png'), dpi=dpi, hide=1, bars=bars[2], color=1, wedges=wedges[2])
+	quod.what([sequences[seqids[2]]], title=seqids[2], imgfmt='png', directory=outdir, filename=(seqids[2] + '_' + seqids[1] + '.png'), dpi=dpi, hide=1, bars=bars[2], color=1, wedges=wedges[2], silent=True)
 
 	#Draw D: barred by C
-	quod.what([sequences[seqids[3]]], title=seqids[3], imgfmt='png', directory=outdir, filename=(seqids[3] + '_' + seqids[2] + '.png'), dpi=dpi, hide=1, bars=bars[3], color=1, wedges=wedges[3])
+	quod.what([sequences[seqids[3]]], title=seqids[3], imgfmt='png', directory=outdir, filename=(seqids[3] + '_' + seqids[2] + '.png'), dpi=dpi, hide=1, bars=bars[3], color=1, wedges=wedges[3], silent=True)
 
 
 def build_html(bc, indir, blasts, outdir='hvordan_out/html', filename='test.html', lastpair=None, nextpair=None):
@@ -297,7 +285,7 @@ def blastem(acc, indir, outdir, dpi=300, force=False, seqbank={}, tmcount={}):
 	seq= f.read()
 	f.close()
 
-	return tcblast.til_warum(seq, outfile='%s/graphs/TCBLAST_%s.png' % (outdir, acc), title=acc, dpi=dpi, outdir='%s/blasts' % outdir, clobber=force, seqbank=seqbank, tmcount=tmcount)
+	return tcblast.til_warum(seq, outfile='%s/graphs/TCBLAST_%s.png' % (outdir, acc), title=acc, dpi=dpi, outdir='%s/blasts' % outdir, clobber=force, seqbank=seqbank, tmcount=tmcount, silent=True)
 
 	#fn = outdir + '/' + filename + '.png'
 
@@ -313,47 +301,77 @@ def identifind(seq1, seq2):
 	#Seq1 = Bio.Seq.Seq(seq1, Bio.Alphabet.generic_protein)
 	#Seq2 = Bio.Seq.Seq(seq2, Bio.Alphabet.generic_protein)
 
-	alns = Bio.pairwise2.align.globalds(seq1, seq2, Bio.SubsMat.MatrixInfo.ident, -10, -0.5)
+	alns = Bio.pairwise2.align.localds(seq1, seq2, Bio.SubsMat.MatrixInfo.ident, -10, -0.5)
 	for aln in alns:
 		subjstart = 0
 
-		sngap = re.findall('^-+', aln[0])
-		if sngap: sngap = len(sngap[0])
-		else: sngap = 0
+		#sngap = re.findall('^-+', aln[0])
+		#if sngap: sngap = len(sngap[0])
+		#else: sngap = 0
 
-		scgap = re.findall('-+$', aln[0])
-		if scgap: scgap = len(aln[0]) - len(scgap[0]) - 1
-		else: scgap = len(aln[0])-1
+		#scgap = re.findall('-+$', aln[0])
+		#if scgap: scgap = len(aln[0]) - len(scgap[0]) - 1
+		#else: scgap = len(aln[0])-1
 
-		tngap = re.findall('^-+', aln[1])
-		if tngap: tngap = len(tngap[0])
-		else: tngap = 0
+		#tngap = re.findall('^-+', aln[1])
+		#if tngap: tngap = len(tngap[0])
+		#else: tngap = 0
 
-		tcgap = re.findall('-+$', aln[1])
-		if tcgap: tcgap = len(aln[1]) - len(tcgap[0]) - 1
-		else: tcgap = len(aln[1])-1
+		#tcgap = re.findall('-+$', aln[1])
+		#if tcgap: tcgap = len(aln[1]) - len(tcgap[0]) - 1
+		#else: tcgap = len(aln[1])-1
 
-		if sngap: 
-			sstart = 0
-			tstart = sngap
-		else: 
-			sstart = tngap
-			tstart = 0
-
-		#if scgap: 
-		#	send = len(seq1)-1
-		#	tend = len(seq2)-scgap-1
+		#if sngap: 
+		#	sstart = 0
+		#	tstart = sngap
 		#else: 
-		#	send = len(seq1)-tcgap-1
-		#	tend = len(seq2)-1
+		#	sstart = tngap
+		#	tstart = 0
 
-		#return sstart+1, send+1, tstart+1, tend+1
-		return (sngap+1, scgap+1), (tngap+1, tcgap+1) #second pair has the useful indices for this case
+		igap1 = re.findall('^-+', aln[0])
+		igap2 = re.findall('^-+', aln[1])
+		tgap1 = re.findall('-+$', aln[0])
+		tgap2 = re.findall('-+$', aln[1])
+		if igap1:
+			#1 -----CYFQNCPRG
+			#2 CYFQNCPRGCYFQN
+			qstart = 0
+			sstart = len(igap1[0])
+		elif igap2:
+			#1 CYFQNCPRGCYFQN
+			#2 -----CYFQNCPRG
+			qstart = len(igap2[0])
+			sstart = 0
+		else:
+			#1 CYFQNCPRGCYFQN
+			#2 CYFQNCPRG-----
+			qstart = 0
+			sstart = 0
+		if tgap1:
+			#1 CYFQNCPRG-----
+			#2 CYFQNCPRGCYFQN
+			qend = len(seq1)-1
+			send = len(seq2)-1-len(tgap1[0])
+		elif tgap2:
+			#1 CYFQNCPRGCYFQN
+			#2 CYFQNCPRG-----
+			qend = len(seq1)-1-len(tgap[1])
+			send = len(seq2)-1
+		else:
+			#1 CYFQNCPRGCYFQN
+			#2 -----CYFQNCPRG
+			qend = len(seq1)-1
+			send = len(seq2)-1
+		return qstart+1, qend+1, sstart+1, send+1
 
 		#I prefer 0-indexing, but pretty much everyone 1-indexes (at least for protein sequences)
 
 
 def summarize(p1d, p2d, outdir, minz=15, maxz=None, dpi=100, force=False, email=None, musthave=None, thispair=None, fams=None):
+	if thispair is not None:
+		if len(thispair) % 2: error('Unpaired sequence found')
+		else:
+			truepairs = [thispair[i:i+2] for i in range(0, len(thispair), 2)]
 
 	if not os.path.isdir(outdir): os.mkdir(outdir)
 
@@ -368,7 +386,7 @@ def summarize(p1d, p2d, outdir, minz=15, maxz=None, dpi=100, force=False, email=
 	p2report = f.read()
 	f.close()
 
-	fams, bcs, alnregs, stats = parse_p2report(p2report, minz, maxz, musthave=musthave, thispair=thispair)
+	fams, bcs, alnregs, stats = parse_p2report(p2report, minz, maxz, musthave=musthave, thispair=truepairs)
 
 	if VERBOSITY: info('Selecting best A-B C-D pairs')
 	abcd = seek_initial(p1d, bcs)
@@ -399,13 +417,14 @@ def summarize(p1d, p2d, outdir, minz=15, maxz=None, dpi=100, force=False, email=
 		#bar B, C
 		try: seqb = seqs[pair[1]]
 		except KeyError:
-			with open('%s/sequences/%s.fa' % (outdir, pair[1])) as f: seqb = f.read()
+			with open('%s/sequences/%s.fa' % (outdir, pair[1])) as f: seqb = seqs[pair[1]] = f.read()
 		try: seqc = seqs[pair[2]]
 		except KeyError:
-			with open('%s/sequences/%s.fa' % (outdir, pair[2])) as f: seqc = f.read()
+			with open('%s/sequences/%s.fa' % (outdir, pair[2])) as f: seqc = seqs[pair[2]] = f.read()
 
-		bars.append(identifind(alnregs[pair[1]][pair[2]][0], seqb)[0])
-		bars.append(identifind(alnregs[pair[1]][pair[2]][1], seqc)[0])
+		
+		bars.append(identifind(alnregs[pair[1]][pair[2]][0], seqb)[2:4])
+		bars.append(identifind(alnregs[pair[1]][pair[2]][1], seqc)[2:4])
 
 		#bar D
 		bars.append(pairstats[pair[2]][pair[3]][3])
@@ -422,7 +441,7 @@ def summarize(p1d, p2d, outdir, minz=15, maxz=None, dpi=100, force=False, email=
 			with open('%s/sequences/%s.fa' % (outdir, x)) as f: seqs[x] = f.read()
 
 	for i in range(0, len(allseqs), 4):
-		quod_set(tuple(allseqs[i:i+4]), seqs, outdir + '/sequences', outdir + '/graphs/', dpi=dpi, force=force, bars=bars[i:i+4])
+		quod_set(tuple(allseqs[i:i+4]), seqs, outdir + '/sequences', outdir + '/graphs/', dpi=dpi, force=force, bars=bars[i:i+4], silent=not i)
 
 	#make graphs for all pairs of sequences
 	for s1 in alnregs: 
@@ -474,7 +493,7 @@ if __name__ == '__main__':
 	else: parser.add_argument('-e', '--email', default=None, help='Working email in case too many requests get sent and the NCBI needs to initiate contact. Defaults to checking $ENTREZ_EMAIL if set. {unset}')
 
 	parser.add_argument('-i', metavar='ACC', nargs='+', help='Operate only on pairs containing these accessions')
-	parser.add_argument('-p', metavar='ACC', nargs=2, help='Operate only on this specific pair')
+	parser.add_argument('-p', metavar='ACC', nargs='+', help='Operate only on these specific pairs.')
 
 	args = parser.parse_args()
 

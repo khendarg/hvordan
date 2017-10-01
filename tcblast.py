@@ -1,9 +1,10 @@
 #!/usr/bin/env python
+from __future__ import print_function
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
-import subprocess, tempfile, os
+import subprocess, tempfile, os, sys
 import numpy as np
 
 import re
@@ -43,8 +44,9 @@ def hmmtop(seq, outdir=None, silent=False):
 		f.close()
 		return x
 
-	f = subprocess.Popen(['hmmtop', '-if=--', '-sf=FAS', '-pi=spred', '-is=pseudo'], stdin=subprocess.PIPE, stdout=subprocess.PIPE)
+	f = subprocess.Popen(['hmmtop', '-if=--', '-sf=FAS', '-pi=spred', '-is=pseudo'], stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 	topout, err = f.communicate(input=seq)
+	print(err.strip(), file=sys.stderr)
 
 	if outdir:
 		f = open(fn, 'w')
@@ -72,8 +74,7 @@ def parse_hmmtop(topout):
 		tmss.append([int(indices[i]), int(indices[i+1])-int(indices[i])])
 	return tmss
 
-
-def plot_tab(tab, top, filename, maxaln=50, dpi=100, imgfmt='png', overwrite=False):
+def plot_tab(tab, top, filename, maxaln=50, dpi=100, imgfmt='png', overwrite=False, silent=False):
 	bars = {}
 	targets = []
 	maxlen = 0
@@ -154,11 +155,10 @@ def plot_tab(tab, top, filename, maxaln=50, dpi=100, imgfmt='png', overwrite=Fal
 
 	plt.savefig(filename, format=imgfmt, dpi=dpi, bbox_inches='tight')
 
-#plot_tab(tab1, top1, 'html/tab1.png', dpi=300)
 
 #OPTIMIZE ME: only parse once instead of every time
 
-def summary(tab, html=False, outdir=None, prefix='', seqbank={}, tmcount={}):
+def summary(tab, html=False, outdir=None, prefix='', seqbank={}, tmcount={}, silent=False):
 	out = ''
 	if html == 1: out += '<pre>'
 	#elif html == 2: out += '<table style="font-family: monospace, courier; font-size: 75%">'
@@ -174,7 +174,7 @@ def summary(tab, html=False, outdir=None, prefix='', seqbank={}, tmcount={}):
 			seq = seqbank[hit] = subprocess.check_output(['blastdbcmd', '-db', 'tcdb', '-target_only','-entry', hit]).decode('utf-8')
 		try: ntmss = tmcount[hit]
 		except KeyError:
-			tmss = parse_hmmtop(hmmtop(seq, outdir=outdir, silent=True))
+			tmss = parse_hmmtop(hmmtop(seq, outdir=outdir, silent=silent))
 			ntmss = tmcount[hit] = len(tmss)
 
 		tcid, acc = tuple(hit.split('-'))
@@ -300,12 +300,12 @@ def fmt_pairw(tab, pairw, html=0, prefix=''):
 	#return pairw
 	return out
 
-def til_warum(seq, outfile, title='Unnamed', dpi=100, html=2, outdir=None, clobber=False, seqbank={}, tmcount={}):
+def til_warum(seq, outfile, title='Unnamed', dpi=100, html=2, outdir=None, clobber=False, seqbank={}, tmcount={}, silent=False):
 
 	tab, pairw = blast(seq)
 
 	if not clobber and os.path.isfile(outfile):  pass
-	else: plot_tab(tab, hmmtop(seq, outdir=outdir), outfile, dpi=dpi, overwrite=clobber)
+	else: plot_tab(tab, hmmtop(seq, outdir=outdir), outfile, dpi=dpi, overwrite=clobber, silent=silent)
 
 	if not outfile.startswith('/'): relative = outfile[outfile.find('/')+1:]
 	else: relative = outfile
