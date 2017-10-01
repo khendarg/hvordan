@@ -121,7 +121,7 @@ def tms_color(n):
 		elif r == 2: return 'darkgreen'
 	else: return n
 
-def what(sequences, labels=None, imgfmt='png', directory=None, filename=None, title=False, dpi=80, hide=True, viewer=None, bars=[], color='auto', offset=0, statistics=False, overwrite=False, manual_tms=None, wedges=None, ywedge=2, wedgelength=0.01):
+def what(sequences, labels=None, imgfmt='png', directory=None, filename=None, title=False, dpi=80, hide=True, viewer=None, bars=[], color='auto', offset=0, statistics=False, overwrite=False, manual_tms=None, wedges=None, ywedge=2, wedgelength=1, legend=False):
 	#wedges: [(x1, dx1), (x2, dx2), ...]
 
 	try: color = int(color)
@@ -210,7 +210,6 @@ def what(sequences, labels=None, imgfmt='png', directory=None, filename=None, ti
 		elif len(labels) > 3: plt.suptitle('%s, %s, %s, and %d more' % (tuple(labels[0:3]) + (len(labels) - 3,)))
 	plt.xlabel('Residue #')
 	plt.ylabel('Hydro')
-	#plt.legend(loc='lower right')
 
 	for i, seq in enumerate(sequences):
 		hseq = hydropathies[i]
@@ -232,37 +231,25 @@ def what(sequences, labels=None, imgfmt='png', directory=None, filename=None, ti
 		for x in bars: plt.axvline(x=x, color='black')
 	if wedges:
 		for wedge in wedges:
-			plt.annotate('', xy=(wedge[0]+wedge[1]*maxl*wedgelength, ywedge), xytext=(wedge[0], ywedge), arrowprops={'arrowstyle':'wedge', 'facecolor':'black'})
-
-	fig = plt.gcf()
-	fig.set_size_inches(15, 3)
-	#f = tempfile.NamedTemporaryFile()
-	#f.close()
-	#plt.legend(bbox_to_anchor=(1.05, 1), loc=2, borderaxespad=0.)
-	#legendstuff = []
-	#legendtext = []
-	#if len(sequences) >= 2 and statistics:
-	#	done = []
-	#	for i, h1 in enumerate(hydropathies):
-	#		done.append(i)
-	#		for j, h2 in enumerate(hydropathies):
-	#			if j in done: continue
-	#			else:
-	#				l = min(len(h1), len(h2))
-	#				legendstuff.append(matplotlib.patches.Rectangle((0, 0), 1, 1, fc='w', fill=0, edgecolor='none', linewidth=0))
-	#				r = np.corrcoef(h1[:l], h2[:l])[0,1]
-	#				text = '$R_{%d,%d} = %0.3f$' % (i, j, r)
-	#				text += '\n$R_{%d,%d}^{2} = %0.3f$' % (i, j, r**2)
-	#				text += '\n$\overline{\Delta\upsilon_{%d,%d}} = %0.2f$' % (i, j, np.mean(h2[:l]-h1[:l]))
-	#				legendtext.append(text)
-	#	plt.legend(legendstuff, tuple(legendtext))
+			wedge[0] += abs(wedge[1])**.5 * (wedge[1])/abs(wedge[1])
+			if wedge[1] < 0: 
+				wedge[1] *= -1
+				marker = '<'
+			else:
+				marker = '>'
+			plt.scatter((wedge[0],), (ywedge,), marker=marker, color='black', s=25*wedge[1])
+	
+	plt.legend().set_visible(legend)
+	#fig = plt.gcf()
+	#fig.set_size_inches(15, 3)
+	plt.gcf().set_size_inches(15, 3)
 	plt.savefig(filename, dpi=dpi, format=imgfmt, bbox_inches='tight', pad_inches=0.003)
 	if VERBOSITY != VERBOSITY: 
 		if len(labels) == 1: print('%s: %s' % (filename, labels[0]))
 		elif len(labels) == 2: print('%s: %s, %s' % (filename, labels[0], labels[1]))
 		elif len(labels) == 3: print('%s: %s, %s, %s' % (filename, labels[0], labels[1], labels[2]))
 		elif len(labels) > 3: print('%s: %s, %s, %s, and %d others' % (filename, labels[0], labels[1], labels[2], len(labels)-3))
-	        else: print(filename)
+		else: print(filename)
 	if not hide and (imgfmt != 'eps' and imgfmt != 'tif'):
 		if viewer: IMAGE_VIEWER = viewer
 		else:
@@ -272,7 +259,7 @@ def what(sequences, labels=None, imgfmt='png', directory=None, filename=None, ti
 		os.system('%s %s' % (IMAGE_VIEWER, filename))
 	plt.clf()
 	plt.close()
-	fig.clear()
+	#fig.clear()
 
 #def parse_csranges(csranges):
 #	#assumes csranges is already in ['x-y', 'i-j,u-v'] format
