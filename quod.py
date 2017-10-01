@@ -102,27 +102,30 @@ def hmmtop(sequence):
 	for i in range(0, len(indices), 2): tmss.append(np.array(indices[i:i+2]))
 	return tmss
 
-def hydro_color(n, color='auto'):
+def hydro_color(n):
 	#make graphs less confusing (-K)
-	if color != 'auto': return color
-	else:
+	if type(n) is int:
 		r = n % 3
 		if r == 0: return 'red'
 		elif r == 1: return 'blue'
 		elif r == 2: return 'green'
 		#probably add back extra colors later?
+	else: return n
 
-def tms_color(n, color='auto'):
+def tms_color(n):
 	#colors selected by Arturo
-	if color != 'auto': return color
-	else:
+	if type(n) is int:
 		r = n % 3
 		if r == 0: return 'orange'
 		elif r == 1: return 'cyan'
 		elif r == 2: return 'darkgreen'
+	else: return n
 
 def what(sequences, labels=None, imgfmt='png', directory=None, filename=None, title=False, dpi=80, hide=True, viewer=None, bars=[], color='auto', offset=0, statistics=False, overwrite=False, manual_tms=None, wedges=None, ywedge=2, wedgelength=0.01):
 	#wedges: [(x1, dx1), (x2, dx2), ...]
+
+	try: color = int(color)
+	except ValueError: pass
 
 	#generalized from gblast3.py but mostly the same...
 	if not labels:
@@ -156,20 +159,36 @@ def what(sequences, labels=None, imgfmt='png', directory=None, filename=None, ti
 	top = []
 
 	for seq in sequences:
-
-		if not manual_tms: top.append(hmmtop(seq))
-		else: 
-			tms = manual_tms.pop(0)
-			if tms: top.append(tms)
-			else: top.append(hmmtop(seq))
-		
 		hydropathies.append(hydro(seq))
 
-		if minl == None: minl = len(hydropathies[-1])
+
+		if manual_tms: 
+			tmss = []
+			tms = manual_tms.pop(0)
+			if tms[0]: tmss += (tms)
+			else: tmss = [(tms, color) for tms in hmmtop(seq)]
+			top.append(tmss)
+		else:
+			top.append([(tms, color) for tms in hmmtop(seq)])
+
+		if minl is None: minl = len(hydropathies[-1])
 		elif len(hydropathies[-1]) < minl: minl = len(hydropathies[-1])
 
 		if maxl == None: maxl = len(hydropathies[-1])
 		elif len(hydropathies[-1]) > maxl: maxl = len(hydropathies[-1])
+		#if not manual_tms: top.append((hmmtop(seq), color))
+		#else: 
+		#	tms = manual_tms.pop(0)
+		#	if tms: top.append(tms)
+		#	else: top.append((hmmtop(seq), color))
+		#
+		#hydropathies.append(hydro(seq))
+
+		#if minl == None: minl = len(hydropathies[-1])
+		#elif len(hydropathies[-1]) < minl: minl = len(hydropathies[-1])
+
+		#if maxl == None: maxl = len(hydropathies[-1])
+		#elif len(hydropathies[-1]) > maxl: maxl = len(hydropathies[-1])
 
 	halen = len(hydropathies[0])
 
@@ -196,12 +215,14 @@ def what(sequences, labels=None, imgfmt='png', directory=None, filename=None, ti
 	for i, seq in enumerate(sequences):
 		hseq = hydropathies[i]
 
-		if type(color) is int:
-			plt.plot(X[:len(hseq)]+offset, hseq, linewidth=1, label=labels[i], color=hydro_color(color))
-			for tms in top[i]: plt.axvspan(tms[0]+offset, tms[1]+offset, facecolor=tms_color(color), alpha=0.25)
-		else:
-			plt.plot(X[:len(hseq)]+offset, hseq, linewidth=1, label=labels[i], color=hydro_color(i, color))
-			for tms in top[i]: plt.axvspan(tms[0]+offset, tms[1]+offset, facecolor=tms_color(i, color), alpha=0.25)
+		print(top[i])
+		if color == 'auto': c = i
+		else: c = color
+		plt.plot(X[:len(hseq)]+offset, hseq, linewidth=1, label=labels[i], color=hydro_color(c))
+		for tms in top[i]: 
+			if tms[1] == 'auto': c = i
+			else: c = tms[1]
+			plt.axvspan(tms[0][0]+offset, tms[0][1]+offset, facecolor=tms_color(c), alpha=0.25)
 
 		#...and last but greatest, this, which eliminates crucial logic from gblast3.py
 		#I can only assume it makes sure TMSs land on the right spots in alignments with lots of -'s and Xs
@@ -254,19 +275,46 @@ def what(sequences, labels=None, imgfmt='png', directory=None, filename=None, ti
 	plt.close()
 	fig.clear()
 
-def parse_csranges(csranges):
-	#assumes csranges is already in ['x-y', 'i-j,u-v'] format
-	if not csranges: return []
+#def parse_csranges(csranges):
+#	#assumes csranges is already in ['x-y', 'i-j,u-v'] format
+#	if not csranges: return []
+#	out = []
+#	for rangeset in csranges:
+#		out.append([])
+#		if rangeset.strip().lower() == 'skip': 
+#			out[-1] = None
+#			continue
+#		for span in re.split('\s*,\s*', rangeset):
+#			out[-1].append([int(x) for x in re.split('\s*-\s*', span)])
+#
+#	return out
+
+def parse_csranges(colranges):
+	#assumes colranges is already in ['x-y:color', 'i-j:color,u-v:color'] format
+	if not colranges: return []
 	out = []
-	for rangeset in csranges:
+	colors = []
+	for rangeset in colranges:
 		out.append([])
-		if rangeset.strip().lower() == 'skip': 
-			out[-1] = None
+		colors.append([])
+		if rangeset.strip().lower().startswith('skip'):
+			sspan = re.split('\s*:\s*', rangeset)
+			if len(sspan) < 2: color = 'auto'
+			else:
+				try: color = int(sspan[1])
+				except ValueError: color = sspan[1]
+			out[-1] = None, color
 			continue
 		for span in re.split('\s*,\s*', rangeset):
-			out[-1].append([int(x) for x in re.split('\s*-\s*', span)])
+			sspan = re.split('\s*:\s*', span)
+			if len(sspan) < 2: color = 'auto'
+			else:
+				try: color = int(sspan[1])
+				except ValueError: color = sspan[1]
+			out[-1].append(([int(x) for x in re.split('\s*-\s*', sspan[0])], color))
 
 	return out
+			
 
 def parse_wranges(wranges):
 	#assumes wranges is already in ['x,dx', y,dy'] format
@@ -297,7 +345,8 @@ if __name__ == '__main__':
 	parser.add_argument('--statistics', action='store_true', help='Display some useful statistics on the results')
 	parser.add_argument('-l', metavar='graph_title', help='Label graph with a specific title')
 
-	parser.add_argument('-m', '--manual-tms', metavar='TMSs', nargs='+', help='Use these comma-separated ranges as TMSs instead of HMMTOP output. Use spaces to separate ranges for other sequences and \'skip\' to skip sequences (i.e. letting HMMTOP assign TMSs')
+	parser.add_argument('-m', '--manual-tms', metavar='TMSs', nargs='+', help='Use these comma-separated ranges as TMSs instead of HMMTOP output. Use spaces to separate ranges for other sequences and \'skip\' to skip sequences (i.e. letting HMMTOP assign TMSs. Use colons to specify colors for individual TMSs')
+	#parser.add_argument('-M', '--colored-tms', metavar='TMSs', nargs='+', help='As -m, but use colons to specify colors')
 	parser.add_argument('-w', '--wedges', metavar='wedgex,wedgedx', nargs='+', help='Draw dx-long wedges starting at x. Negative dx values result in left-pointing wedges, and positive dx values result in right-pointing wedges.')
 	parser.add_argument('-W', '--walls', metavar='x,dx', nargs='+', help='Shorthand to specifying both --wedges and --bars for the same x-values. Cumulative with both')
 
