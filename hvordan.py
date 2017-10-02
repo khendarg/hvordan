@@ -516,4 +516,4 @@ if __name__ == '__main__':
 		parser.print_help()
 		exit()
 
-	summarize(args.p1d, args.p2d, args.outdir, minz=args.z_min, maxz=args.z_max, dpi=args.dpi, force=args.clobber, email=args.email, musthave=args.i, thispair=args.p, fams=args.fams, maxhits=maxhits)
+	summarize(args.p1d, args.p2d, args.outdir, minz=args.z_min, maxz=args.z_max, dpi=args.dpi, force=args.clobber, email=args.email, musthave=args.i, thispair=args.p, fams=args.fams, maxhits=args.max_hits)
