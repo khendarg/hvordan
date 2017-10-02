@@ -101,32 +101,43 @@ def parse_p2report(p2report, minz=15, maxz=None, musthave=None, thispair=None):
 			
 	return fams, bcs, alnregs, stats
 
-def seek_initial(p1d, bcs):
+def seek_initial(p1ds, bcs):
 	hits = {}
-	for fam in sorted(bcs.keys()):
+	for fam in sorted(bcs):
 		hits[fam] = {}
 		for bc in sorted(bcs[fam]): hits[fam][bc] = []
-		try: f = open(p1d + '/%s.tbl' % fam)
-		except IOError:
-			try: f = open('%s/%s/psiblast.tbl' % (p1d, fam))
-			except IOError: 
-				if os.path.isfile(p1d): 
-					f = open(p1d)
-					info('Opening %s as a PSIBLAST table' % p1d)
-				else: error('Could not find famXpander results file(s) %s/%s.tbl' % (p1d, fam))
+
+	for p1d in p1ds:
+		famspec = 0
+		if os.path.isfile(p1d): f = open(p1d)
+		elif os.path.isdir(p1d): 
+			for fam in sorted(bcs):
+				try: 
+					famspec = fam
+					f = open('%s/%s.tbl' % (p1d, fam))
+				except IOError:
+					try: f = open('%s/%s/psiblast.tbl' % (p1d, fam))
+					except IOError: error('Could not find famXpander results table in %s' % p1d)
+		else: error('Could not find p1d %s' % p1d)
+
 		for l in f:
 			if not l.strip(): continue
 			if l.lstrip().startswith('#'): continue
 			if '\t' not in l: continue
 			ls = l.split('\t')
-			try: 
-				hits[fam][ls[1]].append((float(ls[4]), ls[0], (int(ls[6]), int(ls[7])), (int(ls[9]), int(ls[10]))))
-			#except KeyError: hits[fam][ls[1]] = [(float(ls[4]), ls[0])]
-			except KeyError: pass
-			#TODO: Implement early file exiting
-
+			if famspec:
+				hits[famspec][ls[1]].append((float(ls[4]), ls[0], (int(ls[6]), int(ls[7])), (int(ls[9]), int(ls[10]))))
+			else:
+				found = 0
+				for fam in sorted(bcs):
+					for bc in sorted(bcs[fam]):
+						if bc == ls[1]: 
+							found = 1
+							hits[fam][ls[1]].append((float(ls[4]), ls[0], (int(ls[6]), int(ls[7])), (int(ls[9]), int(ls[10]))))
+							break
+					if found: break
+	for fam in sorted(bcs):
 		for bc in sorted(hits[fam]): hits[fam][bc] = sorted(hits[fam][bc])[0]
-		f.close()
 	return hits
 
 def clean_fetch(accs, outdir, force=False, email=None):
@@ -490,10 +501,10 @@ if __name__ == '__main__':
 
 	parser = argparse.ArgumentParser(description='HTML Visualization of Reasonable, Decent Alignment Networks')
 
-	parser.add_argument('--p1d', default='.', help='famXpander directory or table (generally psiblast.tbl). Note: Running "cut -f1-12" on psiblast.tbl will greatly improve performance, but compatibility with famXpander/9.X.99/psiblast.tbl directory structures is implemented. Directory traversal is not implemented yet.')
-	parser.add_argument('--p2d', default='.', help='Protocol2 directory or results table (generally results.tbl). If using on root Protocol2 directories, --f1 and --f2 are required.')
+	parser.add_argument('--p1d', metavar='PATH', default=['.'], nargs='+', help='famXpander directories or table(s) (generally psiblast.tbl). Note: Running "cut -f1-12" on psiblast.tbl will greatly improve performance, but compatibility with famXpander/9.X.99/psiblast.tbl directory structures is implemented. Directory traversal is not implemented yet.')
+	parser.add_argument('--p2d', metavar='PATH', default='.', help='Protocol2 directory or results table (generally results.tbl). If using on root Protocol2 directories, --f1 and --f2 are required.')
 
-	parser.add_argument('-o', '--outdir', default='hvordan_out', help='output directory {default:hvordan_out}')
+	parser.add_argument('-o', '--outdir', metavar='DIR', default='hvordan_out', help='output directory {default:hvordan_out}')
 
 	parser.add_argument('-f', '--fams', metavar='FAMILY', default=None, nargs=2, help='families to inspect. Required if using --p2d on root Protocol2 directories')
 
@@ -502,7 +513,7 @@ if __name__ == '__main__':
 
 	parser.add_argument('-c', '--clobber', action='store_true', help='force redownloads/regenerates where applicable')
 	parser.add_argument('-r', '--dpi', type=int, default=100, help='resolution of graphs {default:100}')
-	parser.add_argument('-m', '--max-hits', type=int, default=50, help='how many TCBLAST hits to BLAST for. Contributes significantly to execution time for small famXpander results. {default:50}')
+	parser.add_argument('-m', '--max-hits', type=int, default=50, help='how many TCBLAST hits to BLAST for. Contributes significantly to execution time for small famXpander results. {default:25}')
 
 	if 'ENTREZ_EMAIL' in os.environ:
 		parser.add_argument('-e', '--email', default=None, help='Working email in case too many requests get sent and the NCBI needs to initiate contact. Defaults to checking $ENTREZ_EMAIL if set. {current value: %s}' % os.environ['ENTREZ_EMAIL'])

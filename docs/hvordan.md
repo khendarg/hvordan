@@ -72,14 +72,15 @@ hvordan.py --p1d famXpander_trimmed --p2d 1.X.1_vs_2.Y.1/1.X.1_vs_2.Y.1
 The following options are available. 
 You can also run the script without arguments (or with -h or --help) to display the options:
 
-    --p1d  directory containing _famXpander_ results (default: .)
-    --p2d  directory containing _Protocol2_ results (default: .)
-    -o     output directory (default: hvordan_out)
-	-f     families to inspect, required if using --p2d on root _Protocol2_ directories
-	-z     minimum Z-score (default: 15)
-    -Z     maximum Z-score (default: None)
-    -c     force redownloads/redraws/regenerations (not fully implemented)
-	-r     resolution of plots in DPI (default: 100)
-    -e     Email address the NCBI can contact (default: $ENTREZ_EMAIL if set)
-	-i     inspects only alignments containing at least one of these accessions
-    -p     inspects only this specific pair of accessions
+`--p1d`  directory containing _famXpander_ results (default: .)
+`--p2d`  directory containing _Protocol2_ results (default: .)
+`-o`     output directory (default: hvordan_out
+`-f`     families to inspect, required if using --p2d on root _Protocol2_ directories
+`-z`     minimum Z-score (default: 15)
+`-Z`     maximum Z-score (default: None)
+`-c`     force redownloads/redraws/regenerations (not fully implemented)
+`-r`     resolution of plots in DPI (default: 100)
+`-m`     maximum BLAST hits for the TCBLAST portion (default: 50)
+`-e`     Email address the NCBI can contact (default: $ENTREZ_EMAIL if set)
+`-i`     inspects only alignments containing at least one of these accessions
+`-p`     inspects only these specific pairs of accessions
