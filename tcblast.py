@@ -12,14 +12,14 @@ import re
 import warnings
 warnings.filterwarnings("ignore")
 
-def blast(seq):
+def blast(seq, maxhits=50):
 	f = tempfile.NamedTemporaryFile(delete=False)
 	f.write(seq.encode('utf-8'))
 	f.close()
 	try:
-		cmd = ['blastp', '-db', 'tcdb', '-evalue', '1.0', '-query', f.name, '-gapopen', '11', '-gapextend', '1', '-matrix', 'BLOSUM62', '-comp_based_stats', '0', '-seg', 'no', '-num_alignments', '50']
+		cmd = ['blastp', '-db', 'tcdb', '-evalue', '1.0', '-query', f.name, '-gapopen', '11', '-gapextend', '1', '-matrix', 'BLOSUM62', '-comp_based_stats', '0', '-seg', 'no', '-max_target_seqs', str(maxhits)]
 		tabout = subprocess.check_output(cmd + ['-outfmt', '6'])
-		pairwise = subprocess.check_output(cmd + ['-outfmt', '0', '-num_descriptions', '50'])
+		pairwise = subprocess.check_output(cmd + ['-outfmt', '0', '-max_target_seqs', str(maxhits)])
 	finally: os.remove(f.name)
 
 	return tabout.decode('utf-8'), pairwise.decode('utf-8')
@@ -300,9 +300,9 @@ def fmt_pairw(tab, pairw, html=0, prefix=''):
 	#return pairw
 	return out
 
-def til_warum(seq, outfile, title='Unnamed', dpi=100, html=2, outdir=None, clobber=False, seqbank={}, tmcount={}, silent=False):
+def til_warum(seq, outfile, title='Unnamed', dpi=100, html=2, outdir=None, clobber=False, seqbank={}, tmcount={}, silent=False, maxhits=50):
 
-	tab, pairw = blast(seq)
+	tab, pairw = blast(seq, maxhits=maxhits)
 
 	if not clobber and os.path.isfile(outfile):  pass
 	else: plot_tab(tab, hmmtop(seq, outdir=outdir), outfile, dpi=dpi, overwrite=clobber, silent=silent)

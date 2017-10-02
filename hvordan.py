@@ -83,6 +83,7 @@ def parse_p2report(p2report, minz=15, maxz=None, musthave=None, thispair=None):
 			if minz <= z <= maxz: 
 				#bcs.append(ls[:2])
 				if musthave and ls[0] not in musthave and ls[1] not in musthave: continue
+				found = 1
 				if thispair:
 					found = 0
 					for pair in thispair:
@@ -108,7 +109,11 @@ def seek_initial(p1d, bcs):
 		try: f = open(p1d + '/%s.tbl' % fam)
 		except IOError:
 			try: f = open('%s/%s/psiblast.tbl' % (p1d, fam))
-			except IOError: error('Could not find famXpander results file(s)')
+			except IOError: 
+				if os.path.isfile(p1d): 
+					f = open(p1d)
+					warn('Opening %s as a PSIBLAST table' % p1d)
+				else: error('Could not find famXpander results file(s) %s/%s.tbl' % (p1d, fam))
 		for l in f:
 			if not l.strip(): continue
 			if l.lstrip().startswith('#'): continue
@@ -280,12 +285,12 @@ def get_fulltrans(fams, bcs, abcd):
 		fulltrans.append(tuple([origs[0][p[0]][1], p[0], p[1], origs[1][p[1]][1]]))
 	return fulltrans
 
-def blastem(acc, indir, outdir, dpi=300, force=False, seqbank={}, tmcount={}):
+def blastem(acc, indir, outdir, dpi=300, force=False, seqbank={}, tmcount={}, maxhits=50):
 	f = open(indir + '/sequences/' + acc + '.fa')
 	seq= f.read()
 	f.close()
 
-	return tcblast.til_warum(seq, outfile='%s/graphs/TCBLAST_%s.png' % (outdir, acc), title=acc, dpi=dpi, outdir='%s/blasts' % outdir, clobber=force, seqbank=seqbank, tmcount=tmcount, silent=True)
+	return tcblast.til_warum(seq, outfile='%s/graphs/TCBLAST_%s.png' % (outdir, acc), title=acc, dpi=dpi, outdir='%s/blasts' % outdir, clobber=force, seqbank=seqbank, tmcount=tmcount, silent=True, maxhits=maxhits)
 
 	#fn = outdir + '/' + filename + '.png'
 
@@ -367,7 +372,7 @@ def identifind(seq1, seq2):
 		#I prefer 0-indexing, but pretty much everyone 1-indexes (at least for protein sequences)
 
 
-def summarize(p1d, p2d, outdir, minz=15, maxz=None, dpi=100, force=False, email=None, musthave=None, thispair=None, fams=None):
+def summarize(p1d, p2d, outdir, minz=15, maxz=None, dpi=100, force=False, email=None, musthave=None, thispair=None, fams=None, maxhits=maxhits):
 	if thispair is not None:
 		if len(thispair) % 2: error('Unpaired sequence found')
 		else:
@@ -379,11 +384,19 @@ def summarize(p1d, p2d, outdir, minz=15, maxz=None, dpi=100, force=False, email=
 	if VERBOSITY: info('Reading Protocol2 report')
 	try: f = open(p2d + '/report.tbl')
 	except IOError:
-		famvfam = '%s_vs_%s' % tuple(fams)
-		try: f = open('%s/%s/report.tbl' % (p2d, famvfam))
-		except IOError:
-			try: f = open('%s/%s/%s/report.tbl' % (p2d, famvfam, famvfam))
-			except IOError: error('Could not find a Protocol2 directory for %s and %s' % tuple(fams))
+		if os.path.isfile(p2d):
+			f = open(p2d)
+			warn('Opening %s as a Protocol2 results table' % p2d)
+		else:
+			try:
+				famvfam = '%s_vs_%s' % tuple(fams)
+				try: 
+					f = open('%s/%s/report.tbl' % (p2d, famvfam))
+					warn('Could not find report.tbl in %s, falling back on family vs family subdirectory' % p2d)
+				except IOError:
+					try: f = open('%s/%s/%s/report.tbl' % (p2d, famvfam, famvfam))
+					except IOError: error('Could not find a Protocol2 directory for %s and %s' % tuple(fams))
+			except TypeError: error('Specify families if using Protocol2 root directories')
 	p2report = f.read()
 	f.close()
 
@@ -454,7 +467,7 @@ def summarize(p1d, p2d, outdir, minz=15, maxz=None, dpi=100, force=False, email=
 	tmcount = {}
 	seqbank = {}
 	for pair in fulltrans:
-		blasts[tuple(pair)] = [blastem(pair[1], indir=outdir, outdir=outdir, dpi=dpi), blastem(pair[2], indir=outdir, outdir=outdir, dpi=dpi, force=force, seqbank=seqbank, tmcount=tmcount)]
+		blasts[tuple(pair)] = [blastem(pair[1], indir=outdir, outdir=outdir, dpi=dpi), blastem(pair[2], indir=outdir, outdir=outdir, dpi=dpi, force=force, seqbank=seqbank, tmcount=tmcount, maxhits=maxhits)]
 
 	if VERBOSITY: info('Generating HTML')
 	for i, pair in enumerate(fulltrans):
@@ -484,10 +497,11 @@ if __name__ == '__main__':
 	parser.add_argument('-f', '--fams', metavar='FAMILY', default=None, nargs=2, help='families to inspect. Required if using --p2d on root Protocol2 directories')
 
 	parser.add_argument('-z', '--z-min', default=15, type=int, help='minimum Z score {default:15}')
-	parser.add_argument('-Z', '--z-max', default=None, type=int, help='maximum Z score')
+	parser.add_argument('-Z', '--z-max', default=None, type=int, help='maximum Z score {default:none}')
 
 	parser.add_argument('-c', '--clobber', action='store_true', help='force redownloads where applicable')
 	parser.add_argument('-r', '--dpi', type=int, default=100, help='resolution of graphs {default:100}')
+	parser.add_argument('-m', '--max-hits', type=int, default=50, help='how many TCBLAST hits to BLAST for. Can greatly reduce execution time. {default:50}')
 
 	if 'ENTREZ_EMAIL' in os.environ:
 		parser.add_argument('-e', '--email', default=None, help='Working email in case too many requests get sent and the NCBI needs to initiate contact. Defaults to checking $ENTREZ_EMAIL if set. {current value: %s}' % os.environ['ENTREZ_EMAIL'])
@@ -502,4 +516,4 @@ if __name__ == '__main__':
 		parser.print_help()
 		exit()
 
-	summarize(args.p1d, args.p2d, args.outdir, minz=args.z_min, maxz=args.z_max, dpi=args.dpi, force=args.clobber, email=args.email, musthave=args.i, thispair=args.p, fams=args.fams)
+	summarize(args.p1d, args.p2d, args.outdir, minz=args.z_min, maxz=args.z_max, dpi=args.dpi, force=args.clobber, email=args.email, musthave=args.i, thispair=args.p, fams=args.fams, maxhits=maxhits)
