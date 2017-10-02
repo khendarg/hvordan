@@ -372,6 +372,7 @@ def summarize(p1d, p2d, outdir, minz=15, maxz=None, dpi=100, force=False, email=
 		if len(thispair) % 2: error('Unpaired sequence found')
 		else:
 			truepairs = [thispair[i:i+2] for i in range(0, len(thispair), 2)]
+	else: truepairs = None
 
 	if not os.path.isdir(outdir): os.mkdir(outdir)
 
