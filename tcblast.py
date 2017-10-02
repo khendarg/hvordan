@@ -19,7 +19,7 @@ def blast(seq, maxhits=50):
 	try:
 		cmd = ['blastp', '-db', 'tcdb', '-evalue', '1.0', '-query', f.name, '-gapopen', '11', '-gapextend', '1', '-matrix', 'BLOSUM62', '-comp_based_stats', '0', '-seg', 'no', '-max_target_seqs', str(maxhits)]
 		tabout = subprocess.check_output(cmd + ['-outfmt', '6'])
-		pairwise = subprocess.check_output(cmd + ['-outfmt', '0', '-max_target_seqs', str(maxhits)])
+		pairwise = subprocess.check_output(cmd + ['-outfmt', '0'])
 	finally: os.remove(f.name)
 
 	return tabout.decode('utf-8'), pairwise.decode('utf-8')

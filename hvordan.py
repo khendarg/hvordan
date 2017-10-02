@@ -112,7 +112,7 @@ def seek_initial(p1d, bcs):
 			except IOError: 
 				if os.path.isfile(p1d): 
 					f = open(p1d)
-					warn('Opening %s as a PSIBLAST table' % p1d)
+					info('Opening %s as a PSIBLAST table' % p1d)
 				else: error('Could not find famXpander results file(s) %s/%s.tbl' % (p1d, fam))
 		for l in f:
 			if not l.strip(): continue
