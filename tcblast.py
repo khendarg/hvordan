@@ -119,8 +119,9 @@ def plot_tab(tab, top, filename, maxaln=50, dpi=100, imgfmt='png', overwrite=Fal
 
 	covheight = len(targets)/12.0*2
 	topheight = 0.25
+	bottomheight = 1.0
 	
-	plt.figure(figsize=(8, covheight+topheight), tight_layout=1, dpi=dpi)
+	plt.figure(figsize=(8, covheight+topheight+bottomheight), tight_layout=1, dpi=dpi)
 	#gs = gridspec.GridSpec(2, 1, height_ratios=[topheight, covheight])
 	gs = gridspec.GridSpec(1, 1)
 	ax1 = plt.subplot(gs[0])
@@ -129,9 +130,8 @@ def plot_tab(tab, top, filename, maxaln=50, dpi=100, imgfmt='png', overwrite=Fal
 
 	yoff = 3
 	for i, t in enumerate(targets): 
-		#print(repr(-i), repr(1*.7))
-		ax1.broken_barh(bars[t], [-i-yoff, 1*0.7])
-		plt.annotate(t, [mini[t], -i-yoff], color='white', size=8)
+		ax1.broken_barh(bars[t], [-i-yoff, 1*0.8])
+		plt.annotate(t, [mini[t], -i-yoff+0.1], color='white', size=8)
 		if t == evalue:
 			#draw the 0.05 cutoff line
 			#maybe spread the word that the red line is a 0.05 cutoff line?
@@ -139,6 +139,7 @@ def plot_tab(tab, top, filename, maxaln=50, dpi=100, imgfmt='png', overwrite=Fal
 		#help(plt.annotate)
 	plt.xlim(left=0, right=maxlen)
 	plt.ylim(top=2, bottom=-i-1-yoff)
+	#plt.ylim(top=2, bottom=-i-1-yoff)
 
 	#ax1 = plt.subplot(gs[0], sharex=ax1)
 	#ax1.axes.get_xaxis().set_visible(0)
@@ -331,5 +332,3 @@ def til_warum(seq, outfile, title='Unnamed', dpi=100, html=2, outdir=None, clobb
 	return outi, out
 
 if __name__ == '__main__': print('### UI NOT IMPLEMENTED, BUG KEVIN ###')
-
-#print(til_warum('>gnl|TC-DB|373567223|9.B.143.4.7 protein of unknown function DUF1275 [Methylobacterium extorquens DSM 13060]\nMSDEPVFRPRTRLPFEERLNDRADPVTRPWQIGFGVVLTALAGFVDALGFIRLGGLYTSL\nMSGNTTQLAVALGHGEPLGAVLPALLIGAFLVGAVSGGAIAALCPPRWVTPAVLGLEAVA\nLTAAVALAAEHAHVGVASLFLALAMGGQNAVLAHVQGFRAGTTFVTGALFAFGQKAALAL\nAGRGPRLGWVGDGSVWLSLLVGAVAGTLAHAHLGIAALAIPAVVAAGLCLAATLFTLVYR\nRAPVTLTKI', 'deleteme.png', title='9.B.143.4.7 protein of unknown function DUF1275 [Methylobacterium extorquens DSM 13060]'))

@@ -392,7 +392,7 @@ def summarize(p1d, p2d, outdir, minz=15, maxz=None, dpi=100, force=False, email=
 				famvfam = '%s_vs_%s' % tuple(fams)
 				try: 
 					f = open('%s/%s/report.tbl' % (p2d, famvfam))
-					warn('Could not find report.tbl in %s, falling back on family vs family subdirectory' % p2d)
+					info('Could not find report.tbl in %s, falling back on family vs family subdirectory' % p2d)
 				except IOError:
 					try: f = open('%s/%s/%s/report.tbl' % (p2d, famvfam, famvfam))
 					except IOError: error('Could not find a Protocol2 directory for %s and %s' % tuple(fams))
@@ -467,7 +467,8 @@ def summarize(p1d, p2d, outdir, minz=15, maxz=None, dpi=100, force=False, email=
 	tmcount = {}
 	seqbank = {}
 	for pair in fulltrans:
-		blasts[tuple(pair)] = [blastem(pair[1], indir=outdir, outdir=outdir, dpi=dpi), blastem(pair[2], indir=outdir, outdir=outdir, dpi=dpi, force=force, seqbank=seqbank, tmcount=tmcount, maxhits=maxhits)]
+		#blasts[tuple(pair)] = [blastem(pair[1], indir=outdir, outdir=outdir, dpi=dpi), blastem(pair[2], indir=outdir, outdir=outdir, dpi=dpi, force=force, seqbank=seqbank, tmcount=tmcount, maxhits=maxhits)]
+		blasts[tuple(pair)] = [blastem(pair[i+1], indir=outdir, outdir=outdir, dpi=dpi, maxhits=maxhits) for i in range(2)]
 
 	if VERBOSITY: info('Generating HTML')
 	for i, pair in enumerate(fulltrans):
