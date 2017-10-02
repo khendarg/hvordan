@@ -489,8 +489,8 @@ if __name__ == '__main__':
 
 	parser = argparse.ArgumentParser(description='HTML Visualization of Reasonable, Decent Alignment Networks')
 
-	parser.add_argument('--p1d', default='.', help='famXpander directory. Note: Running "cut -f1-6" on psiblast.tbl will greatly improve performance, but compatibility with famXpander/9.X.99/psiblast.tbl directory structures is implemented. Directory traversal is not implemented yet.')
-	parser.add_argument('--p2d', default='.', help='Protocol2 directory. If using on root Protocol2 directories, --f1 and --f2 are required.')
+	parser.add_argument('--p1d', default='.', help='famXpander directory or table (generally psiblast.tbl). Note: Running "cut -f1-12" on psiblast.tbl will greatly improve performance, but compatibility with famXpander/9.X.99/psiblast.tbl directory structures is implemented. Directory traversal is not implemented yet.')
+	parser.add_argument('--p2d', default='.', help='Protocol2 directory or results table (generally results.tbl). If using on root Protocol2 directories, --f1 and --f2 are required.')
 
 	parser.add_argument('-o', '--outdir', default='hvordan_out', help='output directory {default:hvordan_out}')
 
@@ -499,9 +499,9 @@ if __name__ == '__main__':
 	parser.add_argument('-z', '--z-min', default=15, type=int, help='minimum Z score {default:15}')
 	parser.add_argument('-Z', '--z-max', default=None, type=int, help='maximum Z score {default:none}')
 
-	parser.add_argument('-c', '--clobber', action='store_true', help='force redownloads where applicable')
+	parser.add_argument('-c', '--clobber', action='store_true', help='force redownloads/regenerates where applicable')
 	parser.add_argument('-r', '--dpi', type=int, default=100, help='resolution of graphs {default:100}')
-	parser.add_argument('-m', '--max-hits', type=int, default=50, help='how many TCBLAST hits to BLAST for. Can greatly reduce execution time. {default:50}')
+	parser.add_argument('-m', '--max-hits', type=int, default=50, help='how many TCBLAST hits to BLAST for. Contributes significantly to execution time for small famXpander results. {default:50}')
 
 	if 'ENTREZ_EMAIL' in os.environ:
 		parser.add_argument('-e', '--email', default=None, help='Working email in case too many requests get sent and the NCBI needs to initiate contact. Defaults to checking $ENTREZ_EMAIL if set. {current value: %s}' % os.environ['ENTREZ_EMAIL'])
