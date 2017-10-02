@@ -372,7 +372,7 @@ def identifind(seq1, seq2):
 		#I prefer 0-indexing, but pretty much everyone 1-indexes (at least for protein sequences)
 
 
-def summarize(p1d, p2d, outdir, minz=15, maxz=None, dpi=100, force=False, email=None, musthave=None, thispair=None, fams=None, maxhits=maxhits):
+def summarize(p1d, p2d, outdir, minz=15, maxz=None, dpi=100, force=False, email=None, musthave=None, thispair=None, fams=None, maxhits=50):
 	if thispair is not None:
 		if len(thispair) % 2: error('Unpaired sequence found')
 		else:
