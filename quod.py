@@ -196,15 +196,15 @@ def what(sequences, labels=None, imgfmt='png', directory=None, filename=None, ti
 		elif len(labels) == 2: plt.suptitle('%s (red) and %s (blue)' % tuple(labels))
 		elif len(labels) == 3: plt.suptitle('%s, %s, and %s' % tuple(labels))
 		elif len(labels) > 3: plt.suptitle('%s, %s, %s, and %d more' % (tuple(labels[0:3]) + (len(labels) - 3,)))
-	plt.xlabel('Residue #')
-	plt.ylabel('Hydro')
+	plt.xlabel('Residue number')
+	plt.ylabel('Hydropathy')
 
 	for i, seq in enumerate(sequences):
 		hseq = hydropathies[i]
 
 		if color == 'auto': c = i
 		else: c = color
-		plt.plot(X[:len(hseq)]+offset, hseq, linewidth=1, label=labels[i], color=hydro_color(c))
+		plt.plot(X[:len(hseq)]+offset+window/2, hseq, linewidth=1, label=labels[i], color=hydro_color(c))
 		for tms in top[i]: 
 			if tms[1] == 'auto': c = i
 			else: c = tms[1]
@@ -319,7 +319,7 @@ if __name__ == '__main__':
 	parser.add_argument('--statistics', action='store_true', help='Display some useful statistics on the results')
 	parser.add_argument('-l', metavar='graph_title', help='Label graph with a specific title')
 
-	parser.add_argument('-m', '--manual-tms', metavar='TMSs', nargs='+', help='Use these comma-separated ranges as TMSs instead of HMMTOP output. Use spaces to separate ranges for other sequences and \'skip\' to skip sequences (i.e. letting HMMTOP assign TMSs. Use colons to specify colors for individual TMSs')
+	parser.add_argument('-m', '--manual-tms', metavar='TMSs', nargs='+', help='Use these comma-separated ranges as TMSs instead of HMMTOP output. Use spaces to separate ranges for other sequences and \'skip\' to skip sequences (i.e. letting HMMTOP assign TMSs. Use colons to specify colors for individual TMSs. Example: -m 1-20:orange paints residues between 1 and 20 inclusive orange. -m 30-50,55-75:cyan paints residues between 30 and 50 inclusive the default color and residues between 55 and 75 inclusive cyan.')
 	#parser.add_argument('-M', '--colored-tms', metavar='TMSs', nargs='+', help='As -m, but use colons to specify colors')
 	parser.add_argument('-w', '--wedges', metavar='wedgex,wedgedx', nargs='+', help='Draw dx-long wedges starting at x. Negative dx values result in left-pointing wedges, and positive dx values result in right-pointing wedges.')
 	parser.add_argument('-W', '--walls', metavar='x,dx', nargs='+', help='Shorthand to specifying both --wedges and --bars for the same x-values. Cumulative with both')
