@@ -122,7 +122,7 @@ def tms_color(n):
 		elif r == 2: return 'darkgreen'
 	else: return n
 
-def what(sequences, labels=None, imgfmt='png', directory=None, filename=None, title=False, dpi=80, hide=True, viewer=None, bars=[], color='auto', offset=0, statistics=False, overwrite=False, manual_tms=None, wedges=None, ywedge=2, legend=False, window=19, silent=False):
+def what(sequences, labels=None, imgfmt='png', directory=None, filename=None, title=False, dpi=80, hide=True, viewer=None, bars=[], color='auto', offset=0, statistics=False, overwrite=False, manual_tms=None, wedges=None, ywedge=2, legend=False, window=19, silent=False, axisfont=None, tickfont=None, xticks=None):
 	#wedges: [(x1, dx1), (x2, dx2), ...]
 
 	try: color = int(color)
@@ -190,14 +190,20 @@ def what(sequences, labels=None, imgfmt='png', directory=None, filename=None, ti
 	#...and this one too...
 	#plt.xlim(right=len(sequences[0]))
 	plt.xlim(left=offset, right=maxl+offset+window)
+	if xticks: plt.xticks(np.arange(offset, maxl+offset+window, xticks))
+	if tickfont: plt.tick_params(labelsize=tickfont)
 	if title: plt.suptitle(title)
 	else:
 		if len(labels) == 1: plt.suptitle(labels[0])
 		elif len(labels) == 2: plt.suptitle('%s (red) and %s (blue)' % tuple(labels))
 		elif len(labels) == 3: plt.suptitle('%s, %s, and %s' % tuple(labels))
 		elif len(labels) > 3: plt.suptitle('%s, %s, %s, and %d more' % (tuple(labels[0:3]) + (len(labels) - 3,)))
-	plt.xlabel('Residue number')
-	plt.ylabel('Hydropathy')
+	if axisfont:
+		plt.xlabel('Residue number', fontsize=axisfont)
+		plt.ylabel('Hydropathy', fontsize=axisfont)
+	else:
+		plt.xlabel('Residue number')
+		plt.ylabel('Hydropathy')
 
 	for i, seq in enumerate(sequences):
 		hseq = hydropathies[i]
@@ -324,6 +330,10 @@ if __name__ == '__main__':
 	parser.add_argument('-w', '--wedges', metavar='wedgex,wedgedx', nargs='+', help='Draw dx-long wedges starting at x. Negative dx values result in left-pointing wedges, and positive dx values result in right-pointing wedges.')
 	parser.add_argument('-W', '--walls', metavar='x,dx', nargs='+', help='Shorthand to specifying both --wedges and --bars for the same x-values. Cumulative with both')
 
+	parser.add_argument('--xticks', metavar='interval', type=float, help='Spacing between x ticks')
+	parser.add_argument('--axis-font', metavar='size', type=int, help='Axis label size')
+	parser.add_argument('--tick-font', metavar='size', type=int, help='Tick label size')
+
 	args = parser.parse_args()
 
 	#warnings look messy
@@ -370,4 +380,4 @@ if __name__ == '__main__':
 	if args.wedges: wedges += parse_wranges(args.wedges)
 	if args.bars: bars += [int(x) for x in args.bars]
 
-	what(sequences, labels=labels, imgfmt=args.t, directory=args.d, filename=args.o, title=args.l, dpi=args.r, hide=args.q, viewer=args.a, overwrite=True, bars=bars, color=args.color, statistics=args.statistics, offset=args.offset, manual_tms=parse_csranges(args.manual_tms), wedges=wedges)
+	what(sequences, labels=labels, imgfmt=args.t, directory=args.d, filename=args.o, title=args.l, dpi=args.r, hide=args.q, viewer=args.a, overwrite=True, bars=bars, color=args.color, statistics=args.statistics, offset=args.offset, manual_tms=parse_csranges(args.manual_tms), wedges=wedges, xticks=args.xticks, axisfont=args.axis_font, tickfont=args.tick_font)
