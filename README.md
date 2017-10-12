@@ -171,7 +171,7 @@ Use space-separated comma-separated `x,length` pairs with `-w` to get wedges/arr
 <!--General layout and various text copied from https://github.com/SaierLaboratory/TCDBtools/blob/master/manuals/famXpander.md-->
 
 ## haystack
-A stack of needles may overflow buffers
+A stack of needles may overflow
 
 Compares two sequences based on CGAT (<- GSAT) Z-scores of TMSs (<- HMMTOP) using a linear gap cost Smith-Waterman implementation
 
