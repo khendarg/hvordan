@@ -21,7 +21,7 @@ class Seq(object):
 
 		self.tmss = None
 
-	def hmmtop(self):
+	def hmmtop(self, extend=5):
 		if self.tmss: return self.tmss
 		else:
 			self.tmss = []
@@ -31,24 +31,24 @@ class Seq(object):
 
 			indices = re.findall('((?:\s*[0-9]\s*)+)$', out)[0].strip().split()
 			for i in range(1, len(indices), 2): 
-				self.tmss.append([int(indices[i]), int(indices[i+1])])
+				self.tmss.append([int(indices[i])-extend, int(indices[i+1])+extend])
 
-	def get_tms_sequence(self, n): 
-		if self.tmss is None: self.hmmtop()
+	def get_tms_sequence(self, n, extend=5): 
+		if self.tmss is None: self.hmmtop(extend=extend)
 		if self.tmss: return self.seq[self.tmss[n][0]-1:self.tmss[n][1]]
 		else: return ''
 
 
-	def get_tms_fasta(self, n):
-		if self.tmss is None: self.hmmtop()
+	def get_tms_fasta(self, n, extend=5):
+		if self.tmss is None: self.hmmtop(extend=extend)
 		if self.tmss: 
 			header = '>' + self.header + ' TMS %d' % (n+1)
 			seq = self.seq[self.tmss[n][0]-1:self.tmss[n][1]]
 			return header + '\n' + seq
 		else: return ''
 
-	def get_tms_seq(self, n):
-		if self.tmss is None: self.hmmtop()
+	def get_tms_seq(self, n, extend=5):
+		if self.tmss is None: self.hmmtop(extend=5)
 		if self.tmss: 
 			header = '>' + self.header + ' TMS %d' % (n+1)
 			seq = self.seq[self.tmss[n][0]-1:self.tmss[n][1]]
@@ -88,16 +88,17 @@ class SmithWaterman:
 		self.matrix = None
 
 	#def build_scoring_matrix(self, tmgap=0, gapopen=10., gapextend=0.5, shuffles=2000):
-	def build_scoring_matrix(self, tmgap=2, gapopen=10., gapextend=0.5, shuffles=2000):
+	def build_scoring_matrix(self, tmgap=2, gapopen=10., gapextend=0.5, shuffles=2000, extend=5):
 		self.shuffles = shuffles
 		self.tmgap = tmgap
 		self.gapopen = gapopen
 		self.gapextend = gapextend
+		self.extend = extend
 
 		if self.matrix is not None: return self.matrix
 
-		self.seq1.hmmtop()
-		self.seq2.hmmtop()
+		self.seq1.hmmtop(extend=extend)
+		self.seq2.hmmtop(extend)
 
 		self.simil = []
 		for i in range(len(self.seq1.tmss)):
@@ -123,8 +124,8 @@ class SmithWaterman:
 		self.matrix = scores
 		return scores
 
-	def align(self, shuffles=200, gapopen=10.0, gapextend=0.5, tmgap=2.0): 
-		self.build_scoring_matrix(shuffles=shuffles, gapopen=gapopen, gapextend=gapextend, tmgap=tmgap)
+	def align(self, shuffles=200, gapopen=10.0, gapextend=0.5, tmgap=2.0, extend=5): 
+		self.build_scoring_matrix(shuffles=shuffles, gapopen=gapopen, gapextend=gapextend, tmgap=tmgap, extend=extend)
 
 		highest = (0, 0, 0) #value, i, j
 		for i, row in enumerate(self.matrix):
@@ -221,6 +222,7 @@ class SmithWaterman:
 
 		print('# 1: %s' % self.seq1.header)
 		print('# 2: %s' % self.seq2.header)
+		print('# TMS extension: %d' % self.extend)
 		print('# TMS gap penalty: %0.1f' % self.tmgap)
 		print('# Shuffles: %d' % self.shuffles)
 		print('#')
@@ -256,6 +258,8 @@ if __name__ == '__main__':
 	parser.add_argument('-e', type=float, default=0.5, help='gap extension cost {default:0.5}')
 	parser.add_argument('-t', type=float, default=1.0, help='TMS gap cost {default:1.0}')
 
+	parser.add_argument('-c', type=int, default=5, help='extend TMSs by this many residues {default:5}')
+
 	args = parser.parse_args()
 
 	if args.v: VERBOSITY = 1
@@ -264,5 +268,5 @@ if __name__ == '__main__':
 	with open(args.fasta2) as f: fas2 = Seq(f.read())
 
 	SW = SmithWaterman(fas1, fas2)
-	SW.align(shuffles=args.s, gapopen=args.g, gapextend=args.e, tmgap=args.t)
+	SW.align(shuffles=args.s, gapopen=args.g, gapextend=args.e, tmgap=args.t, extend=args.c)
 	SW.print_path()
