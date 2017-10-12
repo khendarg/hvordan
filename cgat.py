@@ -20,13 +20,14 @@ class Seq(Bio.Seq.Seq):
 def info(*text):
 	for line in text: print('[INFO]: %s' % line, file=sys.stderr)
 
-def cgat(fasta1, fasta2, gapopen=10.0, gapextend=0.5, outfile=None, shuffles=10, shuffleseq=1):
+def cgat(fasta1, fasta2, gapopen=10.0, gapextend=0.5, outfile=None, shuffles=10, shuffleseq=1, silent=False):
 	tape1 = Bio.SeqIO.parse(fasta1, 'fasta')
 	tape2 = Bio.SeqIO.parse(fasta2, 'fasta')
 
 	run = 1
 	def fastafy(title, seq):
 		return '>%s\n%s\n' % (title.strip(), seq.strip())
+	summary = []
 	while run:
 		try:
 			rec1, rec2 = tape1.next(), tape2.next()
@@ -42,11 +43,11 @@ def cgat(fasta1, fasta2, gapopen=10.0, gapextend=0.5, outfile=None, shuffles=10,
 				f2.write(fastafy(rec2.name, rec2.seq)), f2.close()
 				cmd = ['needle', '-asequence', f1.name, '-bsequence', f2.name, '-gapopen', str(gapopen), '-gapextend', str(gapextend)]
 				cmd += ['-outfile', 'stdout']
-				p = subprocess.Popen(cmd, stdout=subprocess.PIPE)
+				p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 				out, err = p.communicate(fas1 + chr(0) + fas2)
 				for l in out.split('\n'):
 					if '# Score' in l: testscore = float(l.split()[-1])
-				print(out.decode('utf-8'))
+				if not silent: print(out.decode('utf-8'))
 			finally:
 				os.remove(f1.name)
 				os.remove(f2.name)
@@ -88,30 +89,42 @@ def cgat(fasta1, fasta2, gapopen=10.0, gapextend=0.5, outfile=None, shuffles=10,
 				if VERBOSITY: info('Done!')
 				for l in out.split('\n'):
 					if l.strip() and '(' in l: scores.append(float(l.split()[-1][1:-1]))
+				if shuffleseq == 0: 
+					if len(scores) < fas1.count('>'): scores += [0.] * (fas1.count('>') - len(scores))
+				elif shuffleseq == 1: 
+					if len(scores) < fas2.count('>'): scores += [0.] * (fas2.count('>') - len(scores))
 				#print(out.decode('utf-8'))
 			finally:
 				os.remove(f1.name)
 				os.remove(f2.name)
 			mean = sum(scores)/len(scores)
 			stdev = (sum([(x - mean)**2 for x in scores])/(len(scores)-1))**.5
-			print('============ FINISHED =============')
-			print('Shuffles: %d' % shuffles)
-			print('Average Quality (AQ): %0.2f +/- %0.2f' % (mean, stdev))
-			print('Test score: %0.1f' % testscore)
-			print('Standard score (Z): %0.1f' % ((testscore - mean)/stdev))
-			print('Precise score (Z): %0.3f' % ((testscore - mean)/stdev))
+			if not silent:
+				print('============ FINISHED =============')
+				print('Shuffles: %d' % shuffles)
+				print('Average Quality (AQ): %0.2f +/- %0.2f' % (mean, stdev))
+				print('Test score: %0.1f' % testscore)
+				if stdev:
+					print('Standard score (Z): %0.1f' % ((testscore - mean)/stdev))
+					print('Precise score (Z): %0.3f' % ((testscore - mean)/stdev))
+				else:
+					print('Standard score (Z): %0.1f' % ((-999.9)))
+					print('Precise score (Z): %0.3f' % ((-999.999)))
+			summary.append((fas1[:fas1.find('\n')-1], fas2[:fas2.find('\n')-1], stdev))
+			try: return ((testscore - mean)/stdev)
+			except ZeroDivisionError: return -999.999
 
 		except StopIteration: run = 0
 
 if __name__ == '__main__':
 	import argparse
 	parser = argparse.ArgumentParser()
-	parser.add_argument('fasta1')
-	parser.add_argument('fasta2')
-	parser.add_argument('-g', '--gapopen', type=float, default=10., help='gap open malus')
-	parser.add_argument('-e', '--gapextend', type=float, default=0.5, help='gap extension malus')
-	parser.add_argument('-o', '--outfile', default=None, help='where to dump alignment output')
-	parser.add_argument('-s', '--shuffles', type=int, default=10, help='number of shuffles')
+	parser.add_argument('fasta1', help='this sequence is not shuffled')
+	parser.add_argument('fasta2', help='this sequence is shuffled')
+	parser.add_argument('-g', '--gapopen', type=float, default=10., help='gap open penalty {default:10}')
+	parser.add_argument('-e', '--gapextend', type=float, default=0.5, help='gap extension penalty {default:0.5}')
+	parser.add_argument('-o', '--outfile', default=None, help='where to dump alignment output {default:stdout}')
+	parser.add_argument('-s', '--shuffles', type=int, default=10, help='number of shuffles {default:10}')
 	parser.add_argument('-v', action='store_true', help='verbose output')
 
 	args = parser.parse_args()
