@@ -3,7 +3,7 @@
 # Documentation for script: _haystack.py_
 
 ## Summary
-This script performs a crude, Smith-Waterman alignment of two sequences based on their TMSs.
+This script performs a crude Smith-Waterman alignment of two sequences based on their TMSs.
 
 ## Dependencies
 The following programs need to be available in your path for this program to run properly:

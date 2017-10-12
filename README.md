@@ -102,12 +102,9 @@ Makes average hydropathy graphs from sequences and sequence-containing files
 
 ## Summary
 This script generates HTML reports with hydropathy plots and representations of TCDB BLAST hits (mostly replicating the [TCDB BLAST tool](http://www.tcdb.org/progs/blast.php)) for _Protocol2_ results. 
-This script generates average hydropathy plots with arbitrary resolution in a variety of commonly usef formats. 
+This script generates average hydropathy plots with arbitrary resolution in a variety of commonly used formats. 
 This can be done on multiple sequences.
 This tool mostly replicates [WHAT](http://biotools.tcdb.org/barwhat2.html).
-
-## Warning
-This script excludes the N-terminal `window` residues from graphs. Make sure length discrepancies with sequences are less than or equal to `window`
 
 ## Dependencies
 The following programs need to be available in your path for this program to run properly:
@@ -171,3 +168,31 @@ Use space-separated x-values with `-b` to get vertical bars.
 ### Wedges/arrowheads
 
 Use space-separated comma-separated `x,length` pairs with `-w` to get wedges/arrowheads. Negative lengths result in left-pointing wedges. Use `-W` to automatically draw bars for each wedge.
+<!--General layout and various text copied from https://github.com/SaierLaboratory/TCDBtools/blob/master/manuals/famXpander.md-->
+
+## haystack
+A stack of needles may overflow buffers
+
+Compares two sequences based on CGAT (<- GSAT) Z-scores of TMSs (<- HMMTOP) using a linear gap cost Smith-Waterman implementation
+
+## Summary
+This script performs a crude Smith-Waterman alignment of two sequences based on their TMSs.
+
+## Dependencies
+The following programs need to be available in your path for this program to run properly:
+
+1. **_Python 2.7+_**  
+Visit the [official website](https://www.python.org/). 
+This program was not tested with more recent versions of Python but was implemented with some forward compatibility.
+
+## Command line options
+The following options are available. 
+You can also run the script without arguments (or with -h or --help) to display the options:
+
+`fasta1` FASTA file of one record. Will not be shuffled
+`fasta2` FASTA file of one record. Will be shuffled
+`-s` number of shuffles to perform (default:2000}
+`-v` verbose output
+`-g` gap opening cost for needle (default:10.0)
+`-e` gap extension cost for needle (default:0.5)
+`-t` TMS gap cost for haystack (default:1.0)

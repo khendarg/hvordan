@@ -4,12 +4,9 @@
 
 ## Summary
 This script generates HTML reports with hydropathy plots and representations of TCDB BLAST hits (mostly replicating the [TCDB BLAST tool](http://www.tcdb.org/progs/blast.php)) for _Protocol2_ results. 
-This script generates average hydropathy plots with arbitrary resolution in a variety of commonly usef formats. 
+This script generates average hydropathy plots with arbitrary resolution in a variety of commonly used formats. 
 This can be done on multiple sequences.
 This tool mostly replicates [WHAT](http://biotools.tcdb.org/barwhat2.html).
-
-## Warning
-This script excludes the N-terminal `window` residues from graphs. Make sure length discrepancies with sequences are less than or equal to `window`
 
 ## Dependencies
 The following programs need to be available in your path for this program to run properly:
