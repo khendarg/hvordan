@@ -250,11 +250,11 @@ if __name__ == '__main__':
 
 	parser.add_argument('fasta1', help='first fasta')
 	parser.add_argument('fasta2', help='second fasta')
-	parser.add_argument('-s', type=int, default=200, help='shuffles {default:2000}')
+	parser.add_argument('-s', type=int, default=2000, help='shuffles {default:2000}')
 	parser.add_argument('-v', help='verbose output')
 	parser.add_argument('-g', type=float, default=10.0, help='gap open cost {default:10.0}')
-	parser.add_argument('-e', type=float, default=0.5, help='gap extension cost {default:10.0}')
-	parser.add_argument('-t', type=float, default=2.0, help='TMS gap cost {default:2.0}')
+	parser.add_argument('-e', type=float, default=0.5, help='gap extension cost {default:0.5}')
+	parser.add_argument('-t', type=float, default=1.0, help='TMS gap cost {default:1.0}')
 
 	args = parser.parse_args()
 
