@@ -12,8 +12,54 @@ import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import numpy as np
+import huffman
 
 VERBOSITY = 0
+
+def entropy(gseq, window=19):
+	if gseq.startswith('>'):
+		gseq = gseq[gseq.find('\n')+1:]
+		gseq = re.sub('[^A-Z\-]', '', gseq)
+	seq=gseq.replace('-','')
+
+	prev = 0
+	midpt = (window+1)//2
+	length = len(seq)
+	entropy = []
+
+	for i in range(length-window+1):
+		h = huffman.Huffman(seq[i:i+window+1])
+		entropy.append(h.compress())
+
+	if len(seq) == len(gseq): return np.array(entropy)
+
+	replace = re.finditer('(-+)',gseq)
+	inserts = {}
+
+	for i in replace: inserts.setdefault(i.start(),i.end()-i.start())
+
+	first = False
+	newentropy = []
+
+	for x, h in enumerate(entropy):
+		if x in inserts.keys() and first is False:
+			first = True
+			for y in range(inserts[x]):
+				newentropy.append(matplotlib.numpy.nan)
+			newcount = x + inserts[x]
+			continue
+		if first is False:
+			newentropy.append(h)
+			continue
+		if first is True and newcount in inserts.keys():
+			for y in range(inserts[newcount]):
+				newentropy.append(matplotlib.numpy.nan)
+			newcount += inserts[newcount]
+			continue
+		else:
+			newentropy.append(h)
+			newcount +=1
+	return np.array(newentropy)
 
 def hydro(gseq, window=19):
 	#Copied with barely any modification from gblast3.py
@@ -122,7 +168,7 @@ def tms_color(n):
 		elif r == 2: return 'darkgreen'
 	else: return n
 
-def what(sequences, labels=None, imgfmt='png', directory=None, filename=None, title=False, dpi=80, hide=True, viewer=None, bars=[], color='auto', offset=0, statistics=False, overwrite=False, manual_tms=None, wedges=None, ywedge=2, legend=False, window=19, silent=False, axisfont=None, tickfont=None, xticks=None):
+def what(sequences, labels=None, imgfmt='png', directory=None, filename=None, title=False, dpi=80, hide=True, viewer=None, bars=[], color='auto', offset=0, statistics=False, overwrite=False, manual_tms=None, wedges=None, ywedge=2, legend=False, window=19, silent=False, axisfont=None, tickfont=None, xticks=None, mode='hydropathy'):
 	#wedges: [(x1, dx1), (x2, dx2), ...]
 
 	try: color = int(color)
@@ -160,7 +206,8 @@ def what(sequences, labels=None, imgfmt='png', directory=None, filename=None, ti
 	top = []
 
 	for seq in sequences:
-		hydropathies.append(hydro(seq, window))
+		if mode == 'hydropathy': hydropathies.append(hydro(seq, window))
+		if mode == 'entropy': hydropathies.append(entropy(seq, window))
 
 
 		if manual_tms: 
@@ -186,7 +233,10 @@ def what(sequences, labels=None, imgfmt='png', directory=None, filename=None, ti
 
 	plt.figure()
 	plt.axhline(y=0, color='black', linewidth=0.5)
-	plt.ylim(-3, 3)
+	if mode == 'entropy': 
+		plt.ylim(2, 5)
+		plt.axhline(y=4.32193, color='black', linewidth=0.5)
+	else: plt.ylim(-3, 3)
 	#...and this one too...
 	#plt.xlim(right=len(sequences[0]))
 	plt.xlim(left=offset, right=maxl+offset+window)
@@ -200,10 +250,12 @@ def what(sequences, labels=None, imgfmt='png', directory=None, filename=None, ti
 		elif len(labels) > 3: plt.suptitle('%s, %s, %s, and %d more' % (tuple(labels[0:3]) + (len(labels) - 3,)))
 	if axisfont:
 		plt.xlabel('Residue number', fontsize=axisfont)
-		plt.ylabel('Hydropathy', fontsize=axisfont)
+		if mode == 'entropy': plt.ylabel('Entropy', fontsize=axisfont)
+		else: plt.ylabel('Hydropathy', fontsize=axisfont)
 	else:
 		plt.xlabel('Residue number')
-		plt.ylabel('Hydropathy')
+		if mode == 'entropy': plt.ylabel('Entropy', fontsize=axisfont)
+		else: plt.ylabel('Hydropathy', fontsize=axisfont)
 
 	for i, seq in enumerate(sequences):
 		hseq = hydropathies[i]
@@ -317,6 +369,7 @@ if __name__ == '__main__':
 	parser.add_argument('-o', metavar='filename', default=None, help='Filename of graph, relative to the argument of -d if present and as normally interpreted otherwise')
 	parser.add_argument('-q', action='store_true', help='"quiet" mode, disables automatic opening of graphs')
 	parser.add_argument('-a', metavar='viewer', default=None, help='Viewer to be used for opening graphs')
+	parser.add_argument('-e', action='store_true', help='switch to entropy graphing mode')
 	parser.add_argument('-b', '--bars', nargs='+', type=int, help='Draws vertical bars at these positions')
 	parser.add_argument('-c', '--color', metavar='color', default='auto', help='Colors all curves')
 	parser.add_argument('--offset', metavar='init_resi', default=0, type=int, help='Sets starting x-value')
@@ -373,6 +426,10 @@ if __name__ == '__main__':
 			sequences.append(inp)
 			labels.append('Sequence %d' % n)
 		n += 1
+
+	if args.e: mode = 'entropy'
+	else: mode = 'hydropathy'
+
 	wedges, bars = [], []
 	if args.walls: 
 		wedges += parse_wranges(args.walls)
@@ -380,4 +437,4 @@ if __name__ == '__main__':
 	if args.wedges: wedges += parse_wranges(args.wedges)
 	if args.bars: bars += [int(x) for x in args.bars]
 
-	what(sequences, labels=labels, imgfmt=args.t, directory=args.d, filename=args.o, title=args.l, dpi=args.r, hide=args.q, viewer=args.a, overwrite=True, bars=bars, color=args.color, statistics=args.statistics, offset=args.offset, manual_tms=parse_csranges(args.manual_tms), wedges=wedges, xticks=args.xticks, axisfont=args.axis_font, tickfont=args.tick_font)
+	what(sequences, labels=labels, imgfmt=args.t, directory=args.d, filename=args.o, title=args.l, dpi=args.r, hide=args.q, viewer=args.a, overwrite=True, bars=bars, color=args.color, statistics=args.statistics, offset=args.offset, manual_tms=parse_csranges(args.manual_tms), wedges=wedges, xticks=args.xticks, axisfont=args.axis_font, tickfont=args.tick_font, mode=mode)
