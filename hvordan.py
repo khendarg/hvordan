@@ -107,35 +107,30 @@ def seek_initial(p1ds, bcs):
 		hits[fam] = {}
 		for bc in sorted(bcs[fam]): hits[fam][bc] = []
 
+	fs = {}
 	for p1d in p1ds:
-		famspec = 0
-		if os.path.isfile(p1d): f = open(p1d)
-		elif os.path.isdir(p1d): 
+		if os.path.isfile(p1d):
+			for bc in sorted(bcs): fs[bc] = p1d
+		elif os.path.isdir(p1d):
 			for fam in sorted(bcs):
-				try: 
-					famspec = fam
-					f = open('%s/%s.tbl' % (p1d, fam))
-				except IOError:
-					try: f = open('%s/%s/psiblast.tbl' % (p1d, fam))
-					except IOError: error('Could not find famXpander results table in %s' % p1d)
-		else: error('Could not find p1d %s' % p1d)
+				if os.path.isfile('%s/%s.tbl' % (p1d, fam)): fs[fam] = '%s/%s.tbl' % (p1d, fam)
 
-		for l in f:
-			if not l.strip(): continue
-			if l.lstrip().startswith('#'): continue
-			if '\t' not in l: continue
-			ls = l.split('\t')
-			if famspec:
-				hits[famspec][ls[1]].append((float(ls[4]), ls[0], (int(ls[6]), int(ls[7])), (int(ls[9]), int(ls[10]))))
-			else:
-				found = 0
-				for fam in sorted(bcs):
-					for bc in sorted(bcs[fam]):
-						if bc == ls[1]: 
-							found = 1
-							hits[fam][ls[1]].append((float(ls[4]), ls[0], (int(ls[6]), int(ls[7])), (int(ls[9]), int(ls[10]))))
-							break
-					if found: break
+				elif os.path.isfile('%s/%s/psiblast.tbl' % (p1d, fam)): fs[fam] = '%s/%s/psiblast.tbl' % (p1d, fam)
+
+				else: error('Could not find famXpander results table in %s' % p1d)
+
+		else: error('Could not find p1d %s' % p1d)
+	for bc in sorted(bcs):
+		with open(fs[bc]) as f:
+			for l in f:
+				if not l.strip(): continue
+				if l.lstrip().startswith('#'): continue
+				if '\t' not in l: continue
+				ls = l.split('\t')
+
+				try: hits[bc][ls[1]].append((float(ls[4]), ls[0], (int(ls[6]), int(ls[7])), (int(ls[9]), int(ls[10]))))
+				except KeyError: hits[bc][ls[1]] = [(float(ls[4]), ls[0], (int(ls[6]), int(ls[7])), (int(ls[9]), int(ls[10])))]
+
 	for fam in sorted(bcs):
 		for bc in sorted(hits[fam]): hits[fam][bc] = sorted(hits[fam][bc])[0]
 	return hits
