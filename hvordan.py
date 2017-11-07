@@ -48,6 +48,7 @@ def fetch(accessions, email=None, db='protein'):
 		try:
 			p = subprocess.Popen(['blastdbcmd', '-db', 'nr', '-entry', acclist], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 			out, err = p.communicate()
+			out = re.sub('>', '\n', out) + '\n'
 
 			remotes = ''
 			for l in err.split('\n'):
@@ -163,11 +164,11 @@ def clean_fetch(accs, outdir, force=False, email=None):
 
 	allfaa = ''
 	if dlme: 
-		if VERBOSITY: info('Downloading %s' % dlme)
+		if VERBOSITY: info('Downloading %d sequence(s)' % len(dlme))
 		allfaa += fetch(dlme, email=email)
 
 	if tcdlme:
-		if VERBOSITY: info('Loading %s' % tcdlme)
+		if VERBOSITY: info('Loading %d TCDB sequence(s)' % len(tcdlme))
 		allfaa += fetch(tcdlme, db='tcdb', email=email)
 
 	fastas = {}
@@ -450,7 +451,7 @@ def summarize(p1d, p2d, outdir, minz=15, maxz=None, dpi=100, force=False, email=
 		for acc in pair: fetchme.add(acc)
 
 	#grab all relevant sequences and store them
-	if VERBOSITY: info('Retrieving %d sequences' % len(fetchme))
+	if VERBOSITY: info('Retrieving %d sequence(s)' % len(fetchme))
 
 	clean_fetch(fetchme, outdir + '/sequences', force=force, email=email)
 
