@@ -3,6 +3,9 @@
 from __future__ import print_function
 import os, sys, subprocess, re 
 
+import warnings
+warnings.filterwarnings("ignore")
+
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
@@ -11,7 +14,6 @@ import time, hashlib
 
 import numpy as np
 
-import warnings
 
 import quod, tcblast
 
@@ -39,24 +41,30 @@ def fetch(accessions, email=None, db='protein'):
 			except ValueError: raise ValueError
 		return out
 	else:
-		if not email:
-			if 'ENTREZ_EMAIL' in os.environ: email = os.environ['ENTREZ_EMAIL']
-			else: 
-				raise TypeError('Missing argument email')
-		#Bio.Entrez.tool = 'biopython'
-		#Bio.Entrez.email = email
-		
 		acclist = ''
 		for x in accessions: acclist += ',' + x
 		acclist = acclist[1:]
 
-		#try: 
-		#	f = Bio.Entrez.efetch(db=db, id=acclist, rettype='fasta', retmode='text')
-		#	out = f.read()
-		#	f.close()
-		#except Bio.Entrez.urllib2.URLError: 
-		out = subprocess.check_output(['curl', '-d', 'db=%s&id=%s&rettype=fasta&retmode=text' % (db, acclist), 'https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi'])
-		return out
+		try:
+			p = subprocess.Popen(['blastdbcmd', '-db', 'nr', '-entry', acclist], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+			out, err = p.communicate()
+
+			remotes = ''
+			for l in err.split('\n'):
+				if l.strip(): remotes += '%s,' % l.split()[-1]
+			remotes = remotes[:-1]
+			out += subprocess.check_output(['curl', '-d', 'db=%s&id=%s&rettype=fasta&retmode=text' % (db, acclist), 'https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi'])
+
+			return out
+		except subprocess.CalledProcessError:
+
+			if not email:
+				if 'ENTREZ_EMAIL' in os.environ: email = os.environ['ENTREZ_EMAIL']
+				else: 
+					raise TypeError('Missing argument email')
+
+			out += subprocess.check_output(['curl', '-d', 'db=%s&id=%s&rettype=fasta&retmode=text' % (db, acclist), 'https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi'])
+			return out
 
 def parse_p2report(p2report, minz=15, maxz=None, musthave=None, thispair=None):
 
@@ -136,6 +144,12 @@ def seek_initial(p1ds, bcs):
 	return hits
 
 def clean_fetch(accs, outdir, force=False, email=None):
+	if not force:
+		removeme = []
+		for acc in accs:
+			if os.path.isfile(outdir + '/%s.fa' % acc): removeme.append(acc)
+		for acc in removeme: accs.remove(acc)
+		
 
 	if not os.path.isdir(outdir): os.mkdir(outdir)
 
@@ -149,18 +163,22 @@ def clean_fetch(accs, outdir, force=False, email=None):
 
 	allfaa = ''
 	if dlme: 
-		#if VERBOSITY: info('Downloading %s' % dlme)
+		if VERBOSITY: info('Downloading %s' % dlme)
 		allfaa += fetch(dlme, email=email)
+
 	if tcdlme:
-		#if VERBOSITY: info('Loading %s' % tcdlme)
+		if VERBOSITY: info('Loading %s' % tcdlme)
 		allfaa += fetch(tcdlme, db='tcdb', email=email)
+
 	fastas = {}
+
 	for fa in allfaa.split('\n\n'):
 		if not fa.strip(): continue
 		for acc in accs:
-			if acc in fastas: continue
+			if acc in fastas: pass
 			if fa.startswith('>' + acc):
 				fastas[acc] = fa
+
 	for x in sorted(fastas): 
 		f = open(outdir + '/%s.fa' % x, 'w')
 		f.write(fastas[x])
@@ -410,19 +428,30 @@ def summarize(p1d, p2d, outdir, minz=15, maxz=None, dpi=100, force=False, email=
 
 	if VERBOSITY: info('Selecting best A-B C-D pairs')
 	abcd = seek_initial(p1d, bcs)
+	#for k in abcd: 
+	#	for j in abcd[k]: 
+	#		print(k, j, abcd[k][j])
 	fulltrans = get_fulltrans(fams, bcs, abcd)
 
 	fetchme = set()
 	pairstats = {}
+	#for fam in abcd:
+	#	for bc in abcd[fam]:
+	#		fetchme.add(bc) # B|C
+	#		fetchme.add(abcd[fam][bc][1]) #A|D
+	#		try: pairstats[bc][abcd[fam][bc][1]] = abcd[fam][bc]
+	#		except KeyError: pairstats[bc] = {abcd[fam][bc][1]:abcd[fam][bc]}
 	for fam in abcd:
 		for bc in abcd[fam]:
-			fetchme.add(bc) # B|C
-			fetchme.add(abcd[fam][bc][1]) #A|D
 			try: pairstats[bc][abcd[fam][bc][1]] = abcd[fam][bc]
 			except KeyError: pairstats[bc] = {abcd[fam][bc][1]:abcd[fam][bc]}
 
+	for pair in fulltrans:
+		for acc in pair: fetchme.add(acc)
+
 	#grab all relevant sequences and store them
-	if VERBOSITY: info('Retrieving sequences')
+	if VERBOSITY: info('Retrieving %d sequences' % len(fetchme))
+
 	clean_fetch(fetchme, outdir + '/sequences', force=force, email=email)
 
 	#prepare correspondences for identifind (marks B, C)
@@ -435,9 +464,11 @@ def summarize(p1d, p2d, outdir, minz=15, maxz=None, dpi=100, force=False, email=
 		#bar A
 		bars.append(pairstats[pair[1]][pair[0]][3])
 		#bar B, C
+
 		try: seqb = seqs[pair[1]]
 		except KeyError:
 			with open('%s/sequences/%s.fa' % (outdir, pair[1])) as f: seqb = seqs[pair[1]] = f.read()
+
 		try: seqc = seqs[pair[2]]
 		except KeyError:
 			with open('%s/sequences/%s.fa' % (outdir, pair[2])) as f: seqc = seqs[pair[2]] = f.read()
@@ -476,19 +507,28 @@ def summarize(p1d, p2d, outdir, minz=15, maxz=None, dpi=100, force=False, email=
 		#blasts[tuple(pair)] = [blastem(pair[1], indir=outdir, outdir=outdir, dpi=dpi), blastem(pair[2], indir=outdir, outdir=outdir, dpi=dpi, force=force, seqbank=seqbank, tmcount=tmcount, maxhits=maxhits)]
 		blasts[tuple(pair)] = [blastem(pair[i+1], indir=outdir, outdir=outdir, dpi=dpi, maxhits=maxhits) for i in range(2)]
 
-	if VERBOSITY: info('Generating HTML')
-	for i, pair in enumerate(fulltrans):
-		pairseqs = []
-		for seq in pair: 
-			try: pairseqs.append(seqs[seq])
-			except KeyError: 
-				with open('%s/sequences/%s.fa' % (outdir, seq)) as f: pairseqs.append(f.read())
+	if fulltrans:
+		if VERBOSITY: info('Generating %d HTML reports' % len(fulltrans))
+		for i, pair in enumerate(fulltrans):
+			pairseqs = []
+			for seq in pair: 
+				try: pairseqs.append(seqs[seq])
+				except KeyError: 
+					with open('%s/sequences/%s.fa' % (outdir, seq)) as f: pairseqs.append(f.read())
 
-		if i > 0: lastpair = fulltrans[i-1]
-		else: lastpair = None
-		if i < (len(fulltrans)-1): nextpair = fulltrans[i+1]
-		else: nextpair = None
-		build_html(pair + tuple(pairseqs) + tuple(stats[pair[1]][pair[2]]), indir=outdir, blasts=blasts[tuple(pair)], outdir=(outdir + '/html'), filename='%s_vs_%s.html' % tuple(pair[1:3]), lastpair=lastpair, nextpair=nextpair)
+			if i > 0: lastpair = fulltrans[i-1]
+			else: lastpair = None
+			if i < (len(fulltrans)-1): nextpair = fulltrans[i+1]
+			else: nextpair = None
+			build_html(pair + tuple(pairseqs) + tuple(stats[pair[1]][pair[2]]), indir=outdir, blasts=blasts[tuple(pair)], outdir=(outdir + '/html'), filename='%s_vs_%s.html' % tuple(pair[1:3]), lastpair=lastpair, nextpair=nextpair)
+	else:
+
+		if minz is None: zmin = '-inf' 
+		else: zmin = '%0.1f' % minz
+		if maxz is None: zmax = '+inf'
+		else: zmax = '%0.1f' % maxz
+
+		info('Generated 0 HTML reports: No significant Protocol2 hits found with Z-scores between %s and %s' % (zmin, zmax))
 
 if __name__ == '__main__':
 
@@ -497,7 +537,7 @@ if __name__ == '__main__':
 	parser = argparse.ArgumentParser(description='HTML Visualization of Reasonable, Decent Alignment Networks')
 
 	parser.add_argument('--p1d', metavar='PATH', default=['.'], nargs='+', help='famXpander directories or table(s) (generally psiblast.tbl). Note: Running "cut -f1-12" on psiblast.tbl will greatly improve performance, but compatibility with famXpander/9.X.99/psiblast.tbl directory structures is implemented. Directory traversal is not implemented yet.')
-	parser.add_argument('--p2d', metavar='PATH', default='.', help='Protocol2 directory or results table (generally results.tbl). If using on root Protocol2 directories, --f1 and --f2 are required.')
+	parser.add_argument('--p2d', metavar='PATH', default='.', help='Protocol2 directory or results table (generally results.tbl). If using on root Protocol2 directories, -f is required.')
 
 	parser.add_argument('-o', '--outdir', metavar='DIR', default='hvordan_out', help='output directory {default:hvordan_out}')
 

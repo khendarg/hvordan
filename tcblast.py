@@ -12,6 +12,7 @@ import re
 import warnings
 warnings.filterwarnings("ignore")
 
+
 def blast(seq, maxhits=50):
 	f = tempfile.NamedTemporaryFile(delete=False)
 	f.write(seq.encode('utf-8'))
@@ -59,16 +60,20 @@ def parse_hmmtop(topout):
 	skip = 0
 	found = 0
 	indices = []
-	for i, x in enumerate(topout.split()): 
-		if skip:
-			skip += 1
-			continue
-		if x in ('IN', 'OUT'): 
-			try: int(topout.split()[i+1])
-			except ValueError: continue
-			if int(topout.split()[i+1]): 
-				indices = topout.split()[i+2:]
-				break
+
+	#indices = re.findall('(?:\s+([0-9]+))\s*$', topout)
+	indices = re.findall('((?:[0-9]+\s+)+)$', topout)[0].strip().split()[1:]
+
+	#for i, x in enumerate(topout.split()): 
+	#	if skip:
+	#		skip += 1
+	#		continue
+	#	if x in ('IN', 'OUT'): 
+	#		try: int(topout.split()[i+1])
+	#		except ValueError: continue
+	#		if int(topout.split()[i+1]): 
+	#			indices = topout.split()[i+2:]
+	#			break
 	tmss = []
 	for i in range(0, len(indices), 2): 
 		tmss.append([int(indices[i]), int(indices[i+1])-int(indices[i])])
