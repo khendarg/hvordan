@@ -12,54 +12,10 @@ import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import numpy as np
-import huffman
+
 
 VERBOSITY = 0
 
-def entropy(gseq, window=19):
-	if gseq.startswith('>'):
-		gseq = gseq[gseq.find('\n')+1:]
-		gseq = re.sub('[^A-Z\-]', '', gseq)
-	seq=gseq.replace('-','')
-
-	prev = 0
-	midpt = (window+1)//2
-	length = len(seq)
-	entropy = []
-
-	for i in range(length-window+1):
-		h = huffman.Huffman(seq[i:i+window+1])
-		entropy.append(h.compress())
-
-	if len(seq) == len(gseq): return np.array(entropy)
-
-	replace = re.finditer('(-+)',gseq)
-	inserts = {}
-
-	for i in replace: inserts.setdefault(i.start(),i.end()-i.start())
-
-	first = False
-	newentropy = []
-
-	for x, h in enumerate(entropy):
-		if x in inserts.keys() and first is False:
-			first = True
-			for y in range(inserts[x]):
-				newentropy.append(matplotlib.numpy.nan)
-			newcount = x + inserts[x]
-			continue
-		if first is False:
-			newentropy.append(h)
-			continue
-		if first is True and newcount in inserts.keys():
-			for y in range(inserts[newcount]):
-				newentropy.append(matplotlib.numpy.nan)
-			newcount += inserts[newcount]
-			continue
-		else:
-			newentropy.append(h)
-			newcount +=1
-	return np.array(newentropy)
 
 def hydro(gseq, window=19):
 	#Copied with barely any modification from gblast3.py
@@ -134,6 +90,55 @@ def hydro(gseq, window=19):
 			newhydro.append(h)
 			newcount +=1
 	return np.array(newhydro)
+
+try: 
+	import huffman
+
+	def entropy(gseq, window=19):
+		if gseq.startswith('>'):
+			gseq = gseq[gseq.find('\n')+1:]
+			gseq = re.sub('[^A-Z\-]', '', gseq)
+		seq=gseq.replace('-','')
+
+		prev = 0
+		midpt = (window+1)//2
+		length = len(seq)
+		entropy = []
+
+		for i in range(length-window+1):
+			h = huffman.Huffman(seq[i:i+window+1])
+			entropy.append(h.compress())
+
+		if len(seq) == len(gseq): return np.array(entropy)
+
+		replace = re.finditer('(-+)',gseq)
+		inserts = {}
+
+		for i in replace: inserts.setdefault(i.start(),i.end()-i.start())
+
+		first = False
+		newentropy = []
+
+		for x, h in enumerate(entropy):
+			if x in inserts.keys() and first is False:
+				first = True
+				for y in range(inserts[x]):
+					newentropy.append(matplotlib.numpy.nan)
+				newcount = x + inserts[x]
+				continue
+			if first is False:
+				newentropy.append(h)
+				continue
+			if first is True and newcount in inserts.keys():
+				for y in range(inserts[newcount]):
+					newentropy.append(matplotlib.numpy.nan)
+				newcount += inserts[newcount]
+				continue
+			else:
+				newentropy.append(h)
+				newcount +=1
+		return np.array(newentropy)
+except ImportError: entropy = hydro
 
 def hmmtop(sequence, silent=False):
 	#Kevin's standard HMMTOP invocation
