@@ -14,7 +14,6 @@ import time, hashlib
 
 import numpy as np
 
-
 import quod, tcblast
 
 #import Bio.Entrez
@@ -22,6 +21,7 @@ import Bio.pairwise2, Bio.SubsMat.MatrixInfo
 
 DEBUG = 1
 VERBOSITY = 1
+
 def warn(*msgs):
 	for l in msgs: print('[WARNING]', l, file=sys.stderr)
 def error(*msgs):
@@ -50,7 +50,7 @@ def fetch(accessions, email=None, db='protein'):
 			if DEBUG: info('Running blastdbcmd')
 			p = subprocess.Popen(['blastdbcmd', '-db', 'nr', '-entry', acclist], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 			out, err = p.communicate()
-			out = re.sub('>', '\n', out) + '\n'
+			#out = re.sub('>', '\n', out) + '\n'
 
 			remotes = ''
 			for l in err.split('\n'):
@@ -58,6 +58,7 @@ def fetch(accessions, email=None, db='protein'):
 			remotes = remotes[:-1]
 			if DEBUG: info('Fetching from remote')
 			out += subprocess.check_output(['curl', '-d', 'db=%s&id=%s&rettype=fasta&retmode=text' % (db, acclist), 'https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi'])
+			#out += subprocess.check_output(['curl', '-d', 'db=protein&id=Q9RBJ2&rettype=fasta&retmode=text', 'https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi'])
 
 			return out
 		except subprocess.CalledProcessError:
@@ -150,12 +151,12 @@ def seek_initial(p1ds, bcs):
 	return hits
 
 def clean_fetch(accs, outdir, force=False, email=None):
+	if DEBUG: info('Fetching %s' % accs)
 	if not force:
 		removeme = []
 		for acc in accs:
 			if os.path.isfile(outdir + '/%s.fa' % acc): removeme.append(acc)
 		for acc in removeme: accs.remove(acc)
-		
 
 	if not os.path.isdir(outdir): os.mkdir(outdir)
 
@@ -178,6 +179,19 @@ def clean_fetch(accs, outdir, force=False, email=None):
 
 		if VERBOSITY: info('Done loading %d TCDB sequence(s)' % len(tcdlme))
 
+	with open('%s/allseqs.faa' % outdir, 'w') as f: f.write(allfaa)
+
+	with open('%s/allseqs.faa' % outdir) as f: 
+		faa = Bio.SeqIO.parse(f, format='fasta')
+		for record in faa: 
+			for desc in record.description.split('>'):
+				name = desc.split()[0]
+				if name.count('.') < 4: name = name[:name.find('.')]
+				if name.count('|') == 1: name = name.split('|')[1]
+
+				with open('%s/%s.fa' % (outdir, name), 'w') as f: f.write('>%s\n%s' % (desc, record.seq))
+	exit()
+
 	fastas = {}
 
 	for fa in allfaa.split('\n\n'):
@@ -188,6 +202,7 @@ def clean_fetch(accs, outdir, force=False, email=None):
 				fastas[acc] = fa
 
 	for x in sorted(fastas): 
+		if DEBUG: info('Saving %s' % x)
 		f = open(outdir + '/%s.fa' % x, 'w')
 		f.write(fastas[x])
 		f.close()
