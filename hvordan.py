@@ -613,7 +613,7 @@ if __name__ == '__main__':
 
 	parser.add_argument('-c', '--clobber', action='store_true', help='force redownloads/regenerates where applicable')
 	parser.add_argument('-r', '--dpi', type=int, default=100, help='resolution of graphs {default:100}')
-	parser.add_argument('-m', '--max-hits', type=int, default=50, help='how many TCBLAST hits to BLAST for. Contributes significantly to execution time for small famXpander results. {default:25}')
+	parser.add_argument('-m', '--max-hits', type=int, default=10, help='how many TCBLAST hits to BLAST for. Contributes significantly to execution time for small famXpander results. {default:25}')
 
 	if 'ENTREZ_EMAIL' in os.environ:
 		parser.add_argument('-e', '--email', default=None, help='Working email in case too many requests get sent and the NCBI needs to initiate contact. Defaults to checking $ENTREZ_EMAIL if set. {current value: %s}' % os.environ['ENTREZ_EMAIL'])
