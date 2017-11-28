@@ -11,6 +11,7 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 import time, hashlib
+import tempfile
 
 import numpy as np
 
@@ -19,7 +20,7 @@ import quod, tcblast
 #import Bio.Entrez
 import Bio.pairwise2, Bio.SubsMat.MatrixInfo
 
-DEBUG = 1
+DEBUG = 0
 VERBOSITY = 1
 
 def warn(*msgs):
@@ -189,7 +190,7 @@ def clean_fetch(accs, outdir, force=False, email=None):
 				if name.count('.') < 4: name = name[:name.find('.')]
 				if name.count('|') == 1: name = name.split('|')[1]
 
-				if DEBUG: info('Saving %s' % name)
+				if DEBUG > 1: info('Saving %s' % name)
 				with open('%s/%s.fa' % (outdir, name), 'w') as f: f.write('>%s\n%s' % (desc, record.seq))
 
 	fastas = {}
@@ -350,75 +351,110 @@ def identifind(seq1, seq2):
 	if seq2.startswith('>'): seq2 = seq2[seq2.find('\n')+1:]
 	seq1 = re.sub('[^ACDEFGHIKLMNPQRSTVWY]', '', seq1.upper())
 	seq2 = re.sub('[^ACDEFGHIKLMNPQRSTVWY]', '', seq2.upper())
-	#Seq1 = Bio.Seq.Seq(seq1, Bio.Alphabet.generic_protein)
-	#Seq2 = Bio.Seq.Seq(seq2, Bio.Alphabet.generic_protein)
 
 	if DEBUG: info('Starting an alignment')
-	alns = Bio.pairwise2.align.localds(seq1, seq2, Bio.SubsMat.MatrixInfo.ident, -10, -0.5)
+	#alns = Bio.pairwise2.align.localds(seq1, seq2, Bio.SubsMat.MatrixInfo.ident, -10, -0.5)
+	#out = subprocess.check_output(['ggsearch36'])
+	aln = ggsearch(seq1, seq2)
+
 	if DEBUG: info('Finished an alignment')
-	for aln in alns:
-		subjstart = 0
 
-		#sngap = re.findall('^-+', aln[0])
-		#if sngap: sngap = len(sngap[0])
-		#else: sngap = 0
+	subjstart = 0
 
-		#scgap = re.findall('-+$', aln[0])
-		#if scgap: scgap = len(aln[0]) - len(scgap[0]) - 1
-		#else: scgap = len(aln[0])-1
+	#sngap = re.findall('^-+', aln[0])
+	#if sngap: sngap = len(sngap[0])
+	#else: sngap = 0
 
-		#tngap = re.findall('^-+', aln[1])
-		#if tngap: tngap = len(tngap[0])
-		#else: tngap = 0
+	#scgap = re.findall('-+$', aln[0])
+	#if scgap: scgap = len(aln[0]) - len(scgap[0]) - 1
+	#else: scgap = len(aln[0])-1
 
-		#tcgap = re.findall('-+$', aln[1])
-		#if tcgap: tcgap = len(aln[1]) - len(tcgap[0]) - 1
-		#else: tcgap = len(aln[1])-1
+	#tngap = re.findall('^-+', aln[1])
+	#if tngap: tngap = len(tngap[0])
+	#else: tngap = 0
 
-		#if sngap: 
-		#	sstart = 0
-		#	tstart = sngap
-		#else: 
-		#	sstart = tngap
-		#	tstart = 0
+	#tcgap = re.findall('-+$', aln[1])
+	#if tcgap: tcgap = len(aln[1]) - len(tcgap[0]) - 1
+	#else: tcgap = len(aln[1])-1
 
-		igap1 = re.findall('^-+', aln[0])
-		igap2 = re.findall('^-+', aln[1])
-		tgap1 = re.findall('-+$', aln[0])
-		tgap2 = re.findall('-+$', aln[1])
-		if igap1:
-			#1 -----CYFQNCPRG
-			#2 CYFQNCPRGCYFQN
-			qstart = 0
-			sstart = len(igap1[0])
-		elif igap2:
-			#1 CYFQNCPRGCYFQN
-			#2 -----CYFQNCPRG
-			qstart = len(igap2[0])
-			sstart = 0
-		else:
-			#1 CYFQNCPRGCYFQN
-			#2 CYFQNCPRG-----
-			qstart = 0
-			sstart = 0
-		if tgap1:
-			#1 CYFQNCPRG-----
-			#2 CYFQNCPRGCYFQN
-			qend = len(seq1)-1
-			send = len(seq2)-1-len(tgap1[0])
-		elif tgap2:
-			#1 CYFQNCPRGCYFQN
-			#2 CYFQNCPRG-----
-			qend = len(seq1)-1-len(tgap[1])
-			send = len(seq2)-1
-		else:
-			#1 CYFQNCPRGCYFQN
-			#2 -----CYFQNCPRG
-			qend = len(seq1)-1
-			send = len(seq2)-1
-		return qstart+1, qend+1, sstart+1, send+1
+	#if sngap: 
+	#	sstart = 0
+	#	tstart = sngap
+	#else: 
+	#	sstart = tngap
+	#	tstart = 0
+
+	igap1 = re.findall('^-+', aln[0])
+	igap2 = re.findall('^-+', aln[1])
+	tgap1 = re.findall('-+$', aln[0])
+	tgap2 = re.findall('-+$', aln[1])
+	if igap1:
+		#1 -----CYFQNCPRG
+		#2 CYFQNCPRGCYFQN
+		qstart = 0
+		sstart = len(igap1[0])
+	elif igap2:
+		#1 CYFQNCPRGCYFQN
+		#2 -----CYFQNCPRG
+		qstart = len(igap2[0])
+		sstart = 0
+	else:
+		#1 CYFQNCPRGCYFQN
+		#2 CYFQNCPRG-----
+		qstart = 0
+		sstart = 0
+	if tgap1:
+		#1 CYFQNCPRG-----
+		#2 CYFQNCPRGCYFQN
+		qend = len(seq1)-1
+		send = len(seq2)-1-len(tgap1[0])
+	elif tgap2:
+		#1 CYFQNCPRGCYFQN
+		#2 CYFQNCPRG-----
+		qend = len(seq1)-1-len(tgap[1])
+		send = len(seq2)-1
+	else:
+		#1 CYFQNCPRGCYFQN
+		#2 -----CYFQNCPRG
+		qend = len(seq1)-1
+		send = len(seq2)-1
+
+	return qstart+1, qend+1, sstart+1, send+1
 
 		#I prefer 0-indexing, but pretty much everyone 1-indexes (at least for protein sequences)
+
+def ggsearch(seq1, seq2):
+	if not seq1.startswith('>'): seq1 = '>seq1\n' + seq1
+	if not seq2.startswith('>'): seq2 = '>seq2\n' + seq2
+
+	try:
+		f1 = tempfile.NamedTemporaryFile(delete=False)
+		f1.write(seq1)
+		f1.close()
+
+		f2 = tempfile.NamedTemporaryFile(delete=False)
+		f2.write(seq2)
+		f2.close()
+
+		cmd = ['ggsearch36', '-m', '3', f1.name, f2.name]
+		out = subprocess.check_output(cmd)
+
+	finally:
+		os.remove(f1.name)
+		os.remove(f2.name)
+	
+	seqi = 0
+	alns = []
+	for l in out.split('\n'):
+		if l.startswith('>'): seqi += 1
+		if seqi:
+			if not l.strip(): seqi = 0
+			#elif l.startswith('>'): alns.append(l + '\n')
+			#else: alns[-1] += l + '\n'
+			elif l.startswith('>'): alns.append('')
+			else: alns[-1] += l
+
+	return alns
 
 
 def summarize(p1d, p2d, outdir, minz=15, maxz=None, dpi=100, force=False, email=None, musthave=None, thispair=None, fams=None, maxhits=50):
