@@ -171,6 +171,8 @@ def clean_fetch(accs, outdir, force=False, email=None):
 		if VERBOSITY: info('Loading %d TCDB sequence(s)' % len(tcdlme))
 		allfaa += fetch(tcdlme, db='tcdb', email=email)
 
+		if VERBOSITY: info('Done loading %d TCDB sequence(s)' % len(tcdlme))
+
 	fastas = {}
 
 	for fa in allfaa.split('\n\n'):
@@ -454,6 +456,8 @@ def summarize(p1d, p2d, outdir, minz=15, maxz=None, dpi=100, force=False, email=
 	if VERBOSITY: info('Retrieving %d sequence(s)' % len(fetchme))
 
 	clean_fetch(fetchme, outdir + '/sequences', force=force, email=email)
+
+	if VERBOSITY: info('Done retrieving %d sequences' % len(fetchme))
 
 	#prepare correspondences for identifind (marks B, C)
 	allseqs = []
