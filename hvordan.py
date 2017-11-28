@@ -36,6 +36,7 @@ def fetch(accessions, email=None, db='protein'):
 		out = ''
 		for acc in accessions:
 			try: 
+				if DEBUG: info('Running blastdbcmd')
 				fa = subprocess.check_output(['blastdbcmd', '-db', 'tcdb', '-target_only', '-entry', acc])
 				out += fa + '\n'
 			except ValueError: raise ValueError
@@ -46,6 +47,7 @@ def fetch(accessions, email=None, db='protein'):
 		acclist = acclist[1:]
 
 		try:
+			if DEBUG: info('Running blastdbcmd')
 			p = subprocess.Popen(['blastdbcmd', '-db', 'nr', '-entry', acclist], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 			out, err = p.communicate()
 			out = re.sub('>', '\n', out) + '\n'
@@ -54,6 +56,7 @@ def fetch(accessions, email=None, db='protein'):
 			for l in err.split('\n'):
 				if l.strip(): remotes += '%s,' % l.split()[-1]
 			remotes = remotes[:-1]
+			if DEBUG: info('Fetching from remote')
 			out += subprocess.check_output(['curl', '-d', 'db=%s&id=%s&rettype=fasta&retmode=text' % (db, acclist), 'https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi'])
 
 			return out
@@ -64,8 +67,10 @@ def fetch(accessions, email=None, db='protein'):
 				else: 
 					raise TypeError('Missing argument email')
 
+			if DEBUG: info('Fetching from remote')
 			out += subprocess.check_output(['curl', '-d', 'db=%s&id=%s&rettype=fasta&retmode=text' % (db, acclist), 'https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi'])
 			return out
+	if DEBUG: info('Done fetching a batch from %s' % db)
 
 def parse_p2report(p2report, minz=15, maxz=None, musthave=None, thispair=None):
 
