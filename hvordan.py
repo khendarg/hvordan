@@ -190,7 +190,6 @@ def clean_fetch(accs, outdir, force=False, email=None):
 				if name.count('|') == 1: name = name.split('|')[1]
 
 				with open('%s/%s.fa' % (outdir, name), 'w') as f: f.write('>%s\n%s' % (desc, record.seq))
-	exit()
 
 	fastas = {}
 
