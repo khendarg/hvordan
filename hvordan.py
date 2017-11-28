@@ -468,6 +468,7 @@ def summarize(p1d, p2d, outdir, minz=15, maxz=None, dpi=100, force=False, email=
 	allseqs = []
 	bars = []
 	seqs = {}
+	if VERBOSITY: info('Aligning subsequences to sequences' % len(fulltrans))
 	for i, pair in enumerate(fulltrans):
 		[allseqs.append(x) for x in pair]
 
@@ -484,6 +485,7 @@ def summarize(p1d, p2d, outdir, minz=15, maxz=None, dpi=100, force=False, email=
 			with open('%s/sequences/%s.fa' % (outdir, pair[2])) as f: seqc = seqs[pair[2]] = f.read()
 
 		
+		if DEBUG: info('Performing 2 subsequence-sequence alignments')
 		bars.append(identifind(alnregs[pair[1]][pair[2]][0], seqb)[2:4])
 		bars.append(identifind(alnregs[pair[1]][pair[2]][1], seqc)[2:4])
 
