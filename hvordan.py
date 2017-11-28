@@ -189,22 +189,23 @@ def clean_fetch(accs, outdir, force=False, email=None):
 				if name.count('.') < 4: name = name[:name.find('.')]
 				if name.count('|') == 1: name = name.split('|')[1]
 
+				if DEBUG: info('Saving %s' % name)
 				with open('%s/%s.fa' % (outdir, name), 'w') as f: f.write('>%s\n%s' % (desc, record.seq))
 
 	fastas = {}
 
-	for fa in allfaa.split('\n\n'):
-		if not fa.strip(): continue
-		for acc in accs:
-			if acc in fastas: pass
-			if fa.startswith('>' + acc):
-				fastas[acc] = fa
+	#for fa in allfaa.split('\n\n'):
+	#	if not fa.strip(): continue
+	#	for acc in accs:
+	#		if acc in fastas: pass
+	#		if fa.startswith('>' + acc):
+	#			fastas[acc] = fa
 
-	for x in sorted(fastas): 
-		if DEBUG: info('Saving %s' % x)
-		f = open(outdir + '/%s.fa' % x, 'w')
-		f.write(fastas[x])
-		f.close()
+	#for x in sorted(fastas): 
+	#	if DEBUG: info('Saving %s' % x)
+	#	f = open(outdir + '/%s.fa' % x, 'w')
+	#	f.write(fastas[x])
+	#	f.close()
 
 def quod_set(seqids, sequences, indir, outdir, dpi=300, force=False, bars=[], prefix='', suffix='', silent=False):
 	if not os.path.isdir(outdir): os.mkdir(outdir)
@@ -352,7 +353,9 @@ def identifind(seq1, seq2):
 	#Seq1 = Bio.Seq.Seq(seq1, Bio.Alphabet.generic_protein)
 	#Seq2 = Bio.Seq.Seq(seq2, Bio.Alphabet.generic_protein)
 
+	if DEBUG: info('Starting an alignment')
 	alns = Bio.pairwise2.align.localds(seq1, seq2, Bio.SubsMat.MatrixInfo.ident, -10, -0.5)
+	if DEBUG: info('Finished an alignment')
 	for aln in alns:
 		subjstart = 0
 
