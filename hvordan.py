@@ -547,8 +547,10 @@ def summarize(p1d, p2d, outdir, minz=15, maxz=None, dpi=100, force=False, email=
 		[allseqs.append(x) for x in pair]
 
 		#bar A
-		bars.append(pairstats[pair[1]][pair[0]][3])
-		pars.append(pairstats[pair[1]][pair[0]][2])
+		#bars.append(pairstats[pair[1]][pair[0]][3])
+		#pars.append(pairstats[pair[1]][pair[0]][2])
+		bars.append(pairstats[pair[1]][pair[0]][2])
+		pars.append(pairstats[pair[1]][pair[0]][3])
 		#bar B, C
 
 		try: seqb = seqs[pair[1]]
@@ -565,8 +567,10 @@ def summarize(p1d, p2d, outdir, minz=15, maxz=None, dpi=100, force=False, email=
 		bars.append(identifind(alnregs[pair[1]][pair[2]][1], seqc)[2:4])
 
 		#bar D
-		bars.append(pairstats[pair[2]][pair[3]][3])
-		pars.append(pairstats[pair[2]][pair[3]][2])
+		#bars.append(pairstats[pair[2]][pair[3]][3])
+		#pars.append(pairstats[pair[2]][pair[3]][2])
+		bars.append(pairstats[pair[2]][pair[3]][2])
+		pars.append(pairstats[pair[2]][pair[3]][3])
 
 		try: subseqs = alnregs[pair[1]][pair[2]]
 		except KeyError: subseqs = alnregs[pair[2]][pair[1]]
