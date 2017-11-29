@@ -209,7 +209,7 @@ def clean_fetch(accs, outdir, force=False, email=None):
 	#	f.write(fastas[x])
 	#	f.close()
 
-def quod_set(seqids, sequences, indir, outdir, dpi=300, force=False, bars=[], prefix='', suffix='', silent=False):
+def quod_set(seqids, sequences, indir, outdir, dpi=300, force=False, bars=[], prefix='', suffix='', silent=False, pars=[]):
 	if not os.path.isdir(outdir): os.mkdir(outdir)
 
 	#wedges = [[[x, 2 * (0.5 - (i % 2))] for i, x in enumerate(span)] for span in bars]
@@ -221,18 +221,25 @@ def quod_set(seqids, sequences, indir, outdir, dpi=300, force=False, bars=[], pr
 		wedges.append([])
 		for j, x in enumerate(span):
 			#wedges.append(quod.Wedge(
-			if 1 <= i <= 2: y = 2
+			if 1 <= i <= 2: y = -2
 			else: y = 0
 			wedges[-1].append(quod.Wedge(x=x, dx=ove(j), y=y))
+
+	medges = []
+	for i, span in enumerate(pars):
+		medges.append([])
+		for j, x in enumerate(span):
+			y = 2
+			medges[-1].append(quod.Wedge(x=x, dx=ove(j), y=y))
 
 	#Draw A: barred by B
 	quod.what([sequences[seqids[0]]], title=seqids[0], imgfmt='png', directory=outdir, filename=(seqids[0] + '_' + seqids[1] + '.png'), dpi=dpi, hide=1, bars=bars[0], wedges=wedges[0], silent=silent)
 
 	#Draw B: barred by C
-	quod.what([sequences[seqids[1]]], title=seqids[1], imgfmt='png', directory=outdir, filename=(seqids[1] + '_' + seqids[2] + '.png'), dpi=dpi, hide=1, bars=bars[1], wedges=wedges[1], silent=True)
+	quod.what([sequences[seqids[1]]], title=seqids[1], imgfmt='png', directory=outdir, filename=(seqids[1] + '_' + seqids[2] + '.png'), dpi=dpi, hide=1, bars=bars[1], wedges=wedges[1]+medges[0], silent=True)
 
 	#Draw C: barred by B
-	quod.what([sequences[seqids[2]]], title=seqids[2], imgfmt='png', directory=outdir, filename=(seqids[2] + '_' + seqids[1] + '.png'), dpi=dpi, hide=1, bars=bars[2], color=1, wedges=wedges[2], silent=True)
+	quod.what([sequences[seqids[2]]], title=seqids[2], imgfmt='png', directory=outdir, filename=(seqids[2] + '_' + seqids[1] + '.png'), dpi=dpi, hide=1, bars=bars[2], color=1, wedges=wedges[2]+medges[1], silent=True)
 
 	#Draw D: barred by C
 	quod.what([sequences[seqids[3]]], title=seqids[3], imgfmt='png', directory=outdir, filename=(seqids[3] + '_' + seqids[2] + '.png'), dpi=dpi, hide=1, bars=bars[3], color=1, wedges=wedges[3], silent=True)
@@ -540,9 +547,8 @@ def summarize(p1d, p2d, outdir, minz=15, maxz=None, dpi=100, force=False, email=
 
 		#bar A
 		bars.append(pairstats[pair[1]][pair[0]][3])
+		pars.append(pairstats[pair[1]][pair[0]][2])
 		#bar B, C
-		print(pair[1], pair[0])
-		print(pairstats[pair[1]][pair[0]])
 
 		try: seqb = seqs[pair[1]]
 		except KeyError:
@@ -559,6 +565,7 @@ def summarize(p1d, p2d, outdir, minz=15, maxz=None, dpi=100, force=False, email=
 
 		#bar D
 		bars.append(pairstats[pair[2]][pair[3]][3])
+		pars.append(pairstats[pair[2]][pair[3]][2])
 
 		try: subseqs = alnregs[pair[1]][pair[2]]
 		except KeyError: subseqs = alnregs[pair[2]][pair[1]]
@@ -571,8 +578,9 @@ def summarize(p1d, p2d, outdir, minz=15, maxz=None, dpi=100, force=False, email=
 		except KeyError: 
 			with open('%s/sequences/%s.fa' % (outdir, x)) as f: seqs[x] = f.read()
 
+	
 	for i in range(0, len(allseqs), 4):
-		quod_set(tuple(allseqs[i:i+4]), seqs, outdir + '/sequences', outdir + '/graphs/', dpi=dpi, force=force, bars=bars[i:i+4], silent=not i)
+		quod_set(tuple(allseqs[i:i+4]), seqs, outdir + '/sequences', outdir + '/graphs/', dpi=dpi, force=force, bars=bars[i:i+4], silent=not i, pars=pars[i//2:i//2+2])
 
 	#make graphs for all pairs of sequences
 	for s1 in alnregs: 

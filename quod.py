@@ -22,7 +22,6 @@ class Wedge(object):
 		self.dx = dx
 		self.y = y
 	def draw(self, plt):
-		print(self.x, self.dx, self.y)
 		#print(dir(plt))
 		(plt.xlim(), plt.ylim())
 		if self.y > 0: ymin, ymax = 0.5, 1
@@ -389,7 +388,6 @@ def parse_wranges(wranges):
 	for wedge in wranges:
 		props = [float(x) for x in re.split('\s*,\s*', wedge)]
 
-		print(props)
 		x, dx, y = 0, 0, 0
 		if len(props) >= 1: x = props[0]
 		if len(props) >= 2: dx = props[1]
