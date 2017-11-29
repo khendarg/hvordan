@@ -387,7 +387,6 @@ def parse_wranges(wranges):
 	for wedge in wranges:
 		props = [float(x) for x in re.split('\s*,\s*', wedge)]
 
-		print(props)
 		x, dx, y = 0, 0, 0
 		if len(props) >= 1: x = props[0]
 		if len(props) >= 2: dx = props[1]
