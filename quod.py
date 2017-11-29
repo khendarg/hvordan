@@ -22,13 +22,16 @@ class Wedge(object):
 		self.dx = dx
 		self.y = y
 	def draw(self, plt):
+		#print(dir(plt))
+		(plt.xlim(), plt.ylim())
 		if self.y > 0: ymin, ymax = 0.5, 1
 		elif self.y < 0: ymin, ymax = 0, 0.5
 		else: ymin, ymax = 0, 1
-		plt.axvline(x=self.x, color='black', ymin=ymin, ymax=ymax)
+		x = max(plt.xlim()[0], min(plt.xlim()[1], self.x))
+		plt.axvline(x=x, color='black', ymin=ymin, ymax=ymax)
 
 		if self.dx:
-			x = self.x + abs(self.dx)**.5 * (self.dx)/abs(self.dx)
+			x = x + abs(self.dx)**.5 * (self.dx)/abs(self.dx)
 			#if self.dx < 0: 
 			if self.y == 0: y = 2
 			else: y = self.y
