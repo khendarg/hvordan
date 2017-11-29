@@ -43,6 +43,7 @@ def fetch(accessions, email=None, db='protein'):
 			except ValueError: raise ValueError
 		return out
 	else:
+		if DEBUG: info('Preparing to fetch non-TCDB sequences')
 		acclist = ''
 		for x in accessions: acclist += ',' + x
 		acclist = acclist[1:]
@@ -211,7 +212,18 @@ def clean_fetch(accs, outdir, force=False, email=None):
 def quod_set(seqids, sequences, indir, outdir, dpi=300, force=False, bars=[], prefix='', suffix='', silent=False):
 	if not os.path.isdir(outdir): os.mkdir(outdir)
 
-	wedges = [[[x, 2 * (0.5 - (i % 2))] for i, x in enumerate(span)] for span in bars]
+	#wedges = [[[x, 2 * (0.5 - (i % 2))] for i, x in enumerate(span)] for span in bars]
+
+	ove = lambda x: int(2 * (0.5 - (x % 2)))
+
+	wedges = []
+	for i, span in enumerate(bars):
+		wedges.append([])
+		for j, x in enumerate(span):
+			#wedges.append(quod.Wedge(
+			if 1 <= i <= 2: y = 2
+			else: y = 0
+			wedges[-1].append(quod.Wedge(x=x, dx=ove(j), y=y))
 
 	#Draw A: barred by B
 	quod.what([sequences[seqids[0]]], title=seqids[0], imgfmt='png', directory=outdir, filename=(seqids[0] + '_' + seqids[1] + '.png'), dpi=dpi, hide=1, bars=bars[0], wedges=wedges[0], silent=silent)
@@ -521,6 +533,7 @@ def summarize(p1d, p2d, outdir, minz=15, maxz=None, dpi=100, force=False, email=
 	allseqs = []
 	bars = []
 	seqs = {}
+	pars = []
 	if VERBOSITY: info('Aligning subsequences to sequences (x%d)' % len(fulltrans))
 	for i, pair in enumerate(fulltrans):
 		[allseqs.append(x) for x in pair]
@@ -528,6 +541,8 @@ def summarize(p1d, p2d, outdir, minz=15, maxz=None, dpi=100, force=False, email=
 		#bar A
 		bars.append(pairstats[pair[1]][pair[0]][3])
 		#bar B, C
+		print(pair[1], pair[0])
+		print(pairstats[pair[1]][pair[0]])
 
 		try: seqb = seqs[pair[1]]
 		except KeyError:

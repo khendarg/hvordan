@@ -22,6 +22,7 @@ class Wedge(object):
 		self.dx = dx
 		self.y = y
 	def draw(self, plt):
+		print(self.x, self.dx, self.y)
 		#print(dir(plt))
 		(plt.xlim(), plt.ylim())
 		if self.y > 0: ymin, ymax = 0.5, 1
@@ -200,7 +201,7 @@ def tms_color(n):
 		elif r == 2: return 'darkgreen'
 	else: return n
 
-def what(sequences, labels=None, imgfmt='png', directory=None, filename=None, title=False, dpi=80, hide=True, viewer=None, bars=[], color='auto', offset=0, statistics=False, overwrite=False, manual_tms=None, wedges=None, ywedge=2, legend=False, window=19, silent=False, axisfont=None, tickfont=None, xticks=None, mode='hydropathy'):
+def what(sequences, labels=None, imgfmt='png', directory=None, filename=None, title=False, dpi=80, hide=True, viewer=None, bars=[], color='auto', offset=0, statistics=False, overwrite=False, manual_tms=None, wedges=[], ywedge=2, legend=False, window=19, silent=False, axisfont=None, tickfont=None, xticks=None, mode='hydropathy'):
 	#wedges: [(x1, dx1), (x2, dx2), ...]
 
 	try: color = int(color)
