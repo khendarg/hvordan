@@ -22,8 +22,6 @@ class Wedge(object):
 		self.dx = dx
 		self.y = y
 	def draw(self, plt):
-		print(self.x, self.dx, self.y)
-		#print(dir(plt))
 		(plt.xlim(), plt.ylim())
 		if self.y > 0: ymin, ymax = 0.5, 1
 		elif self.y < 0: ymin, ymax = 0, 0.5

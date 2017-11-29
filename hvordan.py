@@ -59,7 +59,8 @@ def fetch(accessions, email=None, db='protein'):
 				if l.strip(): remotes += '%s,' % l.split()[-1]
 			remotes = remotes[:-1]
 			if DEBUG: info('Fetching from remote')
-			out += subprocess.check_output(['curl', '-d', 'db=%s&id=%s&rettype=fasta&retmode=text' % (db, acclist), 'https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi'])
+			#out += subprocess.check_output(['curl', '-d', 'db=%s&id=%s&rettype=fasta&retmode=text' % (db, acclist), 'https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi'])
+			if remotes: out += subprocess.check_output(['curl', '-d', 'db=%s&id=%s&rettype=fasta&retmode=text' % (db, remotes), 'https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi'])
 			#out += subprocess.check_output(['curl', '-d', 'db=protein&id=Q9RBJ2&rettype=fasta&retmode=text', 'https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi'])
 
 			return out
@@ -541,8 +542,6 @@ def summarize(p1d, p2d, outdir, minz=15, maxz=None, dpi=100, force=False, email=
 		#bar A
 		bars.append(pairstats[pair[1]][pair[0]][3])
 		#bar B, C
-		print(pair[1], pair[0])
-		print(pairstats[pair[1]][pair[0]])
 
 		try: seqb = seqs[pair[1]]
 		except KeyError:
