@@ -126,9 +126,18 @@ def seek_initial(p1ds, bcs):
 		for bc in sorted(bcs[fam]): hits[fam][bc] = []
 
 	fs = {}
+	fams = sorted(bcs.keys())
 	for p1d in p1ds:
 		if os.path.isfile(p1d):
-			for bc in sorted(bcs): fs[bc] = p1d
+				#fs[bc] = p1d
+
+			#this is indeed a xor/xnor case, but that may be wrong for some directory naming schemes
+			if fams[0] in p1d and fams[1] in p1d: 
+				for bc in fams: fs[bc] = p1d
+			elif fams[0] in p1d: fs[fams[0]] = p1d
+			elif fams[1] in p1d: fs[fams[1]] = p1d
+			else: 
+				for bc in fams: fs[bc] = p1d
 		elif os.path.isdir(p1d):
 			for fam in sorted(bcs):
 				if os.path.isfile('%s/%s.tbl' % (p1d, fam)): fs[fam] = '%s/%s.tbl' % (p1d, fam)
@@ -138,19 +147,25 @@ def seek_initial(p1ds, bcs):
 				else: error('Could not find famXpander results table in %s' % p1d)
 
 		else: error('Could not find p1d %s' % p1d)
+
 	for bc in sorted(bcs):
 		with open(fs[bc]) as f:
 			for l in f:
 				if not l.strip(): continue
 				if l.lstrip().startswith('#'): continue
 				if '\t' not in l: continue
+
 				ls = l.split('\t')
+
+				#if 'CUU05502' in l: print(ls)
+				#if '4.D.1.1.1-Q52257' in l: print(ls)
 
 				try: hits[bc][ls[1]].append((float(ls[4]), ls[0], (int(ls[6]), int(ls[7])), (int(ls[9]), int(ls[10]))))
 				except KeyError: hits[bc][ls[1]] = [(float(ls[4]), ls[0], (int(ls[6]), int(ls[7])), (int(ls[9]), int(ls[10])))]
 
 	for fam in sorted(bcs):
-		for bc in sorted(hits[fam]): hits[fam][bc] = sorted(hits[fam][bc])[0]
+		for bc in sorted(hits[fam]): 
+			hits[fam][bc] = sorted(hits[fam][bc])[0]
 	return hits
 
 def clean_fetch(accs, outdir, force=False, email=None):
@@ -456,8 +471,8 @@ def ggsearch(seq1, seq2):
 		f2.write(seq2)
 		f2.close()
 
-		cmd = ['ggsearch36', '-m', '3', f1.name, f2.name]
-		out = subprocess.check_output(cmd)
+		cmd = ['ssearch36', '-m', '3', f1.name, f2.name]
+		out = subprocess.check_output(cmd).replace(' ', '-')
 
 	finally:
 		os.remove(f1.name)
