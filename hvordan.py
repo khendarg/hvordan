@@ -20,7 +20,7 @@ import quod, tcblast
 #import Bio.Entrez
 import Bio.pairwise2, Bio.SubsMat.MatrixInfo
 
-DEBUG = 1
+DEBUG = 0
 VERBOSITY = 1
 
 def warn(*msgs):
@@ -432,6 +432,11 @@ def identifind(seq1, seq2):
 	igap2 = re.findall('^-+', aln[1])
 	tgap1 = re.findall('-+$', aln[0])
 	tgap2 = re.findall('-+$', aln[1])
+
+	#print(seq1)
+	#print(seq2)
+	#print(aln[0])
+	#print(aln[1])
 	if igap1:
 		#1 -----CYFQNCPRG
 		#2 CYFQNCPRGCYFQN
@@ -455,7 +460,7 @@ def identifind(seq1, seq2):
 	elif tgap2:
 		#1 CYFQNCPRGCYFQN
 		#2 CYFQNCPRG-----
-		qend = len(seq1)-1-len(tgap[1])
+		qend = len(seq1)-1-len(tgap2[1])
 		send = len(seq2)-1
 	else:
 		#1 CYFQNCPRGCYFQN
@@ -480,7 +485,7 @@ def ggsearch(seq1, seq2):
 		f2.write(seq2)
 		f2.close()
 
-		cmd = ['ssearch36', '-m', '3', f1.name, f2.name]
+		cmd = ['ssearch36', '-a', '-m', '3', f1.name, f2.name]
 		out = subprocess.check_output(cmd).replace(' ', '-')
 
 	finally:
@@ -590,7 +595,6 @@ def summarize(p1d, p2d, outdir, minz=15, maxz=None, dpi=100, force=False, email=
 		#pars.append(pairstats[pair[1]][pair[0]][2])
 		bars.append(pairstats[pair[1]][pair[0]][2])
 		pars.append(pairstats[pair[1]][pair[0]][3])
-		#print(pair[1], pair[0], pairstats[pair[1]][pair[0]])
 		#bar B, C
 
 		try: seqb = seqs[pair[1]]
