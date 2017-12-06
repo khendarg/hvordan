@@ -20,7 +20,7 @@ import quod, tcblast
 #import Bio.Entrez
 import Bio.pairwise2, Bio.SubsMat.MatrixInfo
 
-DEBUG = 0
+DEBUG = 1
 VERBOSITY = 1
 
 def warn(*msgs):
@@ -54,17 +54,22 @@ def fetch(accessions, email=None, db='protein'):
 			out, err = p.communicate()
 			#out = re.sub('>', '\n', out) + '\n'
 
+			if err.startswith('BLAST Database error'): raise subprocess.CalledProcessError('Database error', '1')
+
 			remotes = ''
 			for l in err.split('\n'):
-				if l.strip(): remotes += '%s,' % l.split()[-1]
+				if l.strip(): 
+					if 'Entry not found' in l: remotes += '%s,' % l.split()[-1]
 			remotes = remotes[:-1]
-			if DEBUG: info('Fetching from remote')
 			#out += subprocess.check_output(['curl', '-d', 'db=%s&id=%s&rettype=fasta&retmode=text' % (db, acclist), 'https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi'])
-			if remotes: out += subprocess.check_output(['curl', '-d', 'db=%s&id=%s&rettype=fasta&retmode=text' % (db, remotes), 'https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi'])
+			if remotes: 
+				if DEBUG: info('Could not fetch some sequences locally; fetching from remote')
+				out += subprocess.check_output(['curl', '-d', 'db=%s&id=%s&rettype=fasta&retmode=text' % (db, remotes), 'https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi'])
 			#out += subprocess.check_output(['curl', '-d', 'db=protein&id=Q9RBJ2&rettype=fasta&retmode=text', 'https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi'])
 
 			return out
 		except subprocess.CalledProcessError:
+			info('Could not find nr, falling back to Entrez efetch')
 
 			if not email:
 				if 'ENTREZ_EMAIL' in os.environ: email = os.environ['ENTREZ_EMAIL']
@@ -160,7 +165,11 @@ def seek_initial(p1ds, bcs):
 				#if 'CUU05502' in l: print(ls)
 				#if '4.D.1.1.1-Q52257' in l: print(ls)
 
-				try: hits[bc][ls[1]].append((float(ls[4]), ls[0], (int(ls[6]), int(ls[7])), (int(ls[9]), int(ls[10]))))
+				try: 
+					hits[bc][ls[1]].append((float(ls[4]), ls[0], (int(ls[6]), int(ls[7])), (int(ls[9]), int(ls[10]))))
+					#if 'WP_051443908' in l: 
+					#	print(hits[bc][ls[1]])
+					#	exit()
 				except KeyError: hits[bc][ls[1]] = [(float(ls[4]), ls[0], (int(ls[6]), int(ls[7])), (int(ls[9]), int(ls[10])))]
 
 	for fam in sorted(bcs):
@@ -541,6 +550,9 @@ def summarize(p1d, p2d, outdir, minz=15, maxz=None, dpi=100, force=False, email=
 		for bc in abcd[fam]:
 			try: pairstats[bc][abcd[fam][bc][1]] = abcd[fam][bc]
 			except KeyError: pairstats[bc] = {abcd[fam][bc][1]:abcd[fam][bc]}
+			#if 'WP_051443908' in pairstats:
+			#	print('#'*80)
+			#	print('WP_051443908', pairstats['WP_051443908'])
 
 	for pair in fulltrans:
 		for acc in pair: fetchme.add(acc)
@@ -558,14 +570,27 @@ def summarize(p1d, p2d, outdir, minz=15, maxz=None, dpi=100, force=False, email=
 	seqs = {}
 	pars = []
 	if VERBOSITY: info('Aligning subsequences to sequences (x%d)' % len(fulltrans))
+
+	paths = {}
+
 	for i, pair in enumerate(fulltrans):
 		[allseqs.append(x) for x in pair]
+
+		if pair[0] not in paths: 
+			paths[pair[0]] = {}
+			if pair[1] not in paths[pair[0]]: paths[pair[0]] = {}
+			paths[pair[0]][pair[1]] = pair[2]
+		if pair[3] not in paths:
+			paths[pair[3]] = {}
+			if pair[2] not in paths[pair[3]]: paths[pair[3]] = {}
+			paths[pair[3]][pair[2]] = pair[1]
 
 		#bar A
 		#bars.append(pairstats[pair[1]][pair[0]][3])
 		#pars.append(pairstats[pair[1]][pair[0]][2])
 		bars.append(pairstats[pair[1]][pair[0]][2])
 		pars.append(pairstats[pair[1]][pair[0]][3])
+		#print(pair[1], pair[0], pairstats[pair[1]][pair[0]])
 		#bar B, C
 
 		try: seqb = seqs[pair[1]]
@@ -590,6 +615,7 @@ def summarize(p1d, p2d, outdir, minz=15, maxz=None, dpi=100, force=False, email=
 		try: subseqs = alnregs[pair[1]][pair[2]]
 		except KeyError: subseqs = alnregs[pair[2]][pair[1]]
 
+
 	#make graphs for all individual full-lengthers
 	if VERBOSITY: info('Generating QUOD plots')
 
@@ -598,7 +624,6 @@ def summarize(p1d, p2d, outdir, minz=15, maxz=None, dpi=100, force=False, email=
 		except KeyError: 
 			with open('%s/sequences/%s.fa' % (outdir, x)) as f: seqs[x] = f.read()
 
-	
 	for i in range(0, len(allseqs), 4):
 		quod_set(tuple(allseqs[i:i+4]), seqs, outdir + '/sequences', outdir + '/graphs/', dpi=dpi, force=force, bars=bars[i:i+4], silent=not i, pars=pars[i//2:i//2+2])
 
