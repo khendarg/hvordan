@@ -320,7 +320,8 @@ def what(sequences, labels=None, imgfmt='png', directory=None, filename=None, ti
 	plt.legend().set_visible(legend)
 	#fig = plt.gcf()
 	#fig.set_size_inches(15, 3)
-	plt.gcf().set_size_inches(15, 3)
+	width = (0.0265)*maxl if maxl > 600 else 15
+	plt.gcf().set_size_inches(width, 5.5)
 	plt.savefig(filename, dpi=dpi, format=imgfmt, bbox_inches='tight', pad_inches=0.003)
 	if VERBOSITY != VERBOSITY: 
 		if len(labels) == 1: print('%s: %s' % (filename, labels[0]))
