@@ -179,7 +179,7 @@ def hmmtop(sequence, silent=False):
 	pureseq = sequence[sequence.find('\n')+1:]
 	pureseq = re.sub('[^A-Z\-]', '', pureseq)
 
-	for i, c in enumerate(seq):
+	for i, c in enumerate(pureseq):
 		if c in 'ACDEFGHIKLMNPQRSTVWY': pass
 		else: 
 			for j, n in enumerate(indices):
