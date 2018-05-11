@@ -10,9 +10,21 @@ import argparse
 import numpy as np
 
 from Bio import SeqIO
+def sanitize(s): return re.sub('/', '', s)
 
 def roundto(x, n):
 	return (x//5)*5
+
+def overlap(span1, span2):
+	if span1[0] <= span2[0] <= span1[-1]: return True
+	elif span1[0] <= span2[1] <= span1[-1]: return True
+	elif span2[0] <= span1[0] <= span2[-1]: return True
+	elif span2[0] <= span1[1] <= span2[-1]: return True
+	else: return False
+
+def union(span1, span2):
+	if not overlap(span1, span2): raise NotImplementedError
+	else: return [min(span1[0], span2[0]), max(span1[-1], span2[-1])]
 
 def hex2tuple(s):
 	if s.startswith('#'): s = s[1:]
@@ -70,31 +82,28 @@ class Plot(object):
 		self.ax.set_title(title[:-2])
 
 	def save(self, filename, dpi=80, format='png'):
-		self.render()
-
 		self.fig.savefig(filename, dpi=dpi, format=format)
 
 class Entity(object):
-	def __init__(self, plot): 
-		self.plot = plot
+	def __init__(self): pass
 
-	def draw(self): raise NotImplementedError
+	def draw(self, plot): raise NotImplementedError
 
 class Curve(Entity):
-	def __init__(self, plot, X=[], Y=[], style='auto'):
-		Entity.__init__(self, plot)
+	def __init__(self, X=[], Y=[], style='auto'):
+		Entity.__init__(self)
 		self.X = X
 		self.Y = Y
 		self.style = style
 
-	def draw(self): 
+	def draw(self, plot): 
 		if len(Y) and not len(X): 
-			self.plot.ax.plot(Y, style)
-		else: self.plot.ax.plot(X, Y, style)
+			plot.ax.plot(Y, style)
+		else: plot.ax.plot(X, Y, style)
 
 class Vspans(Entity):
-	def __init__(self, plot, spans=[], style='orange', alpha=None):
-		Entity.__init__(self, plot)
+	def __init__(self, spans=[], style='orange', alpha=None):
+		Entity.__init__(self)
 		self.spans = spans
 		self.style = style
 		self.alpha = alpha
@@ -104,13 +113,55 @@ class Vspans(Entity):
 		elif self.alpha is not None: return self.alpha
 		else: return 0.25
 
-	def draw(self):
+	def draw(self, plot):
 		for span in self.spans:
-			self.plot.ax.axvspan(span[0], span[1], facecolor=self.style, alpha=self.get_alpha())
+			plot.ax.axvspan(span[0], span[1], facecolor=self.style, alpha=self.get_alpha())
+
+class Wall(Vspans):
+	def __init__(self, spans=[], y=None, ylim=[0,1], style='black', wedge=1, single=False):
+		Vspans.__init__(self, spans=spans, style=style)
+		self.y = y
+		self.ylim = ylim
+		self.wedge = wedge
+		self.single = single
+
+	def get_y(self):
+		if type(self.y) is None: return 2
+		else: return self.y
+
+	def get_ylim(self):
+		if self.ylim is None: return [0, 1]
+		elif type(self.ylim) is int:
+			if self.ylim > 0: return [0.5, 1]
+			elif self.ylim == 0: return [0, 1]
+			else: return [0, 0.5]
+		else: return self.ylim
+
+	def draw(self, plot):
+		ylim = self.get_ylim()
+		for span in self.spans:
+			for i, x in enumerate(span): 
+				plot.ax.axvline(x=x, color='black', ymin=ylim[0], ymax=ylim[1])
+				if self.wedge:
+					if single:
+						if wedge >= 0: marker = '>'
+						else: marker = '<'
+					else:
+						if i % 2: marker = '<'
+						else: marker = '>'
+
+					#wx = x# + (abs(4*self.wedge)**0.5 * np.sign(0.5 - i % 2))
+					#FIXME: make the arrows aligned at any scale
+					wx = x - 2*(abs(self.wedge) * np.sign((i % 2) - 0.5)) - self.wedge*.5
+
+					if self.y >= 0: wy = 2
+					else: wy = -2
+
+					plot.ax.scatter([wx], [wy], marker=marker, color='black', s=25*abs(self.wedge))
 
 class HMMTOP(Vspans):
-	def __init__(self, plot, gseq, style='orange'):
-		Vspans.__init__(self, plot, style=style)
+	def __init__(self, gseq, style='orange'):
+		Vspans.__init__(self, style=style)
 
 		fasta = gseq
 		if not fasta.startswith('>'): fasta = '>seq\n' + fasta
@@ -135,10 +186,33 @@ class HMMTOP(Vspans):
 					if (n - 1) >= i: indices[j] += 1
 		self.spans = [[indices[i], indices[i+1]] for i in range(0, len(indices), 2)]
 
+	def add(self, *spans):
+		for span in spans: self.spans.append(span)
+
+	def replace(self, *spans):
+		removeme = []
+		for newspan in spans:
+			for j, oldspan in enumerate(self.spans):
+				if overlap(newspan, oldspan): 
+					removeme.append(j)
+		for j in removeme[::-1]: self.spans.pop(j)
+		for newspan in spans: self.spans.append(newspan)
+
+	def extend(self, *spans):
+		fuseme = []
+		appendme = []
+		for i, newspan in enumerate(spans):
+			for j, oldspan in enumerate(self.spans):
+				if overlap(newspan, oldspan): fuseme.append([i, j])
+				else: appendme.append(i)
+		for pair in fuseme:
+			self.spans[pair[1]] = union(self.spans[pair[1]], spans[pair[0]])
+		for span in appendme: self.spans.append(span)
+
 class Hydropathy(Curve):
 
-	def __init__(self, plot, gseq, style='r', offset=0, window=19):
-		Curve.__init__(self, plot, style=style)
+	def __init__(self, gseq, style='r', offset=0, window=19):
+		Curve.__init__(self, style=style)
 		self.window = window
 		#Copied with barely any modification from gblast3.py
 
@@ -147,6 +221,7 @@ class Hydropathy(Curve):
 			gseq = gseq[gseq.find('\n')+1:]
 			gseq = re.sub('[^A-Z\-]', '', gseq)
 		seq = re.sub('[X\-]', '', gseq)
+		seq = re.sub('[^A-Z]', '', seq)
 		prev = 0
 		index = {'G':(-0.400,0.48), \
              'I':(4.500,1.38), \
@@ -211,23 +286,23 @@ class Hydropathy(Curve):
 
 			self.Y = np.array(newhydro)
 			self.X = np.arange(offset+1, len(self.Y)+1)+window//2
-	def draw(self):
-		self.plot.xlim[0] = min(self.plot.xlim[0], self.X[0] - self.window//2)
-		self.plot.xlim[1] = max(self.plot.xlim[1], self.X[-1] + self.window//2)
+	def draw(self, plot):
+		plot.xlim[0] = min(plot.xlim[0], self.X[0] - self.window//2)
+		plot.xlim[1] = max(plot.xlim[1], self.X[-1] + self.window//2)
 
-		self.plot.axeslabels = ['Residue number', 'Hydropathy (kcal/mol)']
-		self.plot.ax.plot(self.X, self.Y, color=self.style, linewidth=1)
+		plot.axeslabels = ['Residue number', 'Hydropathy (kcal/mol)']
+		plot.ax.plot(self.X, self.Y, color=self.style, linewidth=1)
 
 class What(Entity):
-	def __init__(self, plot, seq, style=0, tmscolor=None, linecolor=None):
-		Entity.__init__(self, plot)
+	def __init__(self, seq, style=0, tmscolor=None, linecolor=None):
+		Entity.__init__(self)
 		self.seq = seq
 		self.style = style
 		self.tmscolor = tmscolor
 		self.linecolor = linecolor
 		self.entities = []
-		self.entities.append(Hydropathy(self.plot, seq, style=self.get_curve_color()))
-		self.entities.append(HMMTOP(self.plot, seq, style=self.get_tms_color()))
+		self.entities.append(Hydropathy(seq, style=self.get_curve_color()))
+		self.entities.append(HMMTOP(seq, style=self.get_tms_color()))
 
 	def get_title(self, showlength=True):
 		if self.seq.startswith('>'): 
@@ -236,7 +311,10 @@ class What(Entity):
 				truelength = len(re.sub('[^A-Z]', '', self.seq[self.seq.find('\n')+1:]))
 				s += ' ({}aa)'.format(truelength)
 			return s
-		else: return '{}...'.format(self.seq[:8])
+		else: 
+			PREVIEW = [8, 3]
+			if len(self.seq) <= sum(PREVIEW): return '{} ({}aa)'.format(self.seq, len(self.seq))
+			else: return '{}...{} ({}aa)'.format(self.seq[:8], self.seq[-3:], len(self.seq))
 
 	def get_curve_color(self):
 		if self.linecolor is None:
@@ -256,35 +334,121 @@ class What(Entity):
 			return hex2tuple(self.tmscolor)
 		else: return self.tmscolor
 
-	def draw(self):
+	def draw(self, plot):
 		#for e in self.entities: e.draw(notitle=True)
-		for e in self.entities: e.draw()
+		for e in self.entities: e.draw(plot)
 
 		#XXX maybe this goes better under Hydropathy or something
-		self.plot.titles.append(self.get_title())
+		plot.titles.append(self.get_title())
 
-with open('gapxmfs_2.A.1.1.1.fa') as f: gapseq = f.read().decode('utf-8')
-with open('mfs_2.A.1.1.1.fa') as f: seq = f.read().decode('utf-8')
-plot = Plot()
-entities = []
-entities.append(What(plot, seq, style=0))
-entities.append(What(plot, gapseq, style=1))
-#entities.append(HMMTOP(plot, seq))
-for e in entities: e.draw()
-plot.save('test.png')
-os.system('xdg-open test.png')
-#fig = Figure()
-## A canvas must be manually attached to the figure (pyplot would automatically
-## do it).  This is done by instantiating the canvas with the figure as
-## argument.
-#FigureCanvas(fig)
-#ax = fig.add_subplot(111)
-#ax.plot([1, 2, 3])
-#ax.set_title('hi mom')
-#ax.grid(True)
-#ax.set_xlabel('time')
-#ax.set_ylabel('volts')
-##fig.show()
-#
-#subprocess.call(['xdg-open', 'test.png'])
-#
+def split_fasta(fastastr):
+	sequences = []
+	for l in fastastr.split('\n'):
+		if l.startswith('>'): sequences.append(l)
+		elif not l.strip(): continue
+		else: 
+			try: sequences[-1] += '\n' + l.strip()
+			except IndexError: sequences.append('>untitled sequence\n{}'.format(l))
+	return sequences
+
+#def main(infiles, mode='hydropathy', walls=None, ):
+#def what(sequences, labels=None, imgfmt='png', directory=None, filename=None, title=False, dpi=80, hide=True, viewer=None, bars=[], color='auto', offset=0, statistics=False, overwrite=False, manual_tms=None, wedges=[], ywedge=2, legend=False, window=19, silent=False, axisfont=None, tickfont=None, xticks=None, mode='hydropathy', width=None, height=None):
+def main(infiles, **kwargs):
+	plot = Plot()
+	entities = []
+
+	n = 0
+	if 'force_seq' in kwargs and kwargs['force_seq']: 
+		for seq in infiles: 
+			entities.append(What(seq, style=n))
+			n += 1
+	else:
+		for fn in infiles:
+			with open(fn) as f:
+				for seq in split_fasta(f.read().decode('utf-8')):
+					entities.append(What(seq, style=n))
+					n += 1
+
+	if 'bars' in kwargs and kwargs['bars'] is not None: 
+		[entities.append(wall) for wall in parse_walls(kwargs['bars'], wedge=0)]
+
+	if 'dpi' in kwargs: dpi = kwargs['dpi']
+	else: dpi = 80
+
+	if 'imgfmt' in kwargs: imgfmt = kwargs['imgfmt']
+	else: imgfmt = 'png'
+
+	if 'walls' in kwargs and kwargs['walls'] is not None: 
+		[entities.append(wall) for wall in parse_walls(kwargs['walls'])]
+
+	if 'wall' in kwargs and kwargs['wall'] is not None:
+		[entities.append(wall) for wall in parse_walls(kwargs['wall'], single=1)]
+
+	if 'outdir' in kwargs and kwargs['outdir']: prefix = kwargs['outdir']
+	else: prefix = ''
+
+	if 'outfile' in kwargs and kwargs['outfile']: 
+		if prefix: outfile = '{}/{}'.format(prefix, kwargs['outfile'])
+		else: outfile = '{}'.format(kwargs['outfile'])
+	else: outfile = None
+
+	for e in entities: e.draw(plot)
+
+	plot.render()
+	if outfile is None: 
+		outfile = sanitize(plot.ax.get_title())
+
+	if len(os.path.splitext(outfile)) == 1: outfile += '.{}'.format(imgfmt)
+	elif len(os.path.splitext(outfile)[-1]) not in [3, 4]: outfile += '.{}'.format(imgfmt)
+
+	plot.save(outfile, dpi=dpi, format=imgfmt)
+	os.system('xdg-open "{}"'.format(outfile))
+		
+
+def parse_walls(strlist, wedge=1, single=False):
+	#turns a list of wall specifications into Wall() objects
+	if not strlist: return None
+	out = []
+	for wall in strlist:
+		if type(wall) is str:
+			coords = [int(x) for x in wall.split(',')]
+			if len(coords) == 1: coords.append(5)
+			if len(coords) == 2: coords.append(None)
+
+			span = [coords[0], coords[0]+coords[1]]
+			out.append(Wall([span], y=coords[2], ylim=coords[2], wedge=wedge, single=single))
+		elif type(wall) is int:
+			out.append(Wall([[wall, wall]], wedge=wedge, single=single))
+	return out
+
+if __name__ == '__main__': 
+	parser = argparse.ArgumentParser()
+
+	parser.add_argument('infile', nargs='*', default=['/dev/stdin'], help='sequence files to read in')
+	parser.add_argument('-b', '--bars', nargs='+', type=int, help='Draws vertical bars at these positions')
+	parser.add_argument('-d', metavar='outdir', help='Directory to store graphs in (recommended only with autogenerated filenames)')
+	parser.add_argument('-o', metavar='outfile', help='Filename of graph, relative to the argument of -d if present and as normally interpreted otherwise')
+	parser.add_argument('-r', metavar='resolution', type=int, help='Resolution of graph in dpi. The default is 80dpi, which is suitable for viewing on monitors. Draft-quality images should be about 300dpi, and publication-quality images need to be 600 or 1200dpi depending on the journal.')
+	parser.add_argument('-s', action='store_true', help='Force inputs to be interpreted as sequences (this is no longer a default behavior for infile args matching /[A-Z]+/')
+	parser.add_argument('-t', metavar='format', default='png', help='Format of graph (\033[1mpng\033[0m, eps, jpeg, jpg, pdf, pgf, ps, raw, rgba, svg, svgz, tif, tiff')
+	parser.add_argument('-W', '--wall', metavar='x(,dx(,y))', nargs='+', help='Draws bounds around sequences and such')
+	parser.add_argument('-w', '--walls', metavar='x(,dx(,y))', nargs='+', help='Draws bounds around sequences and such')
+	parser.add_argument('--mode', default='hydropathy', help='mode to run QUOD in (\033[1mhydropathy\033[0m, entropy)')
+	parser.add_argument('--viewer', metavar='viewer', default=None, help='Viewer to be used for opening plots')
+	parser.add_argument('--window', metavar='windowsize', default=19, help='Window size for hydropathy')
+
+	args = parser.parse_args()
+
+	main(args.infile, mode=args.mode, walls=args.walls, wall=args.wall, bars=args.bars, dpi=args.r, imgfmt=args.t, force_seq=args.s, outdir=args.d, outfile=args.o)
+
+#with open('gapxmfs_2.A.1.1.1.fa') as f: gapseq = f.read().decode('utf-8')
+#with open('mfs_2.A.1.1.1.fa') as f: seq = f.read().decode('utf-8')
+#plot = Plot()
+#entities = []
+#entities.append(What(plot, seq, style=0))
+#entities.append(What(plot, gapseq, style=1))
+##entities.append(HMMTOP(plot, seq))
+#for e in entities: e.draw()
+#plot.save('test.png')
+#os.system('xdg-open test.png')
+
