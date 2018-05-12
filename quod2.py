@@ -12,6 +12,28 @@ import numpy as np
 from Bio import SeqIO
 
 VERBOSITY = 0
+
+def isspans(token):
+	if re.match(r'^[0-9]+(?:-[0-9]+)(?:,[0-9]+(?:-[0-9]+))*$', token): return True
+	else: return False
+
+def parse_spans(token):
+	spans = []
+	for span in token.split(','):
+		indices = span.split('-')
+		if len(indices) == 0: continue
+		elif len(indices) == 1: spans.append([int(indices)] * 2)
+		elif len(indices) >= 2: spans.append([int(index) for index in indices[:2]])
+	return spans
+
+def isid(token):
+	if re.match('^\+?[0-9]+$', token): return True
+	else: return False
+
+def parse_id(token):
+	if isid(token): return int(token)
+	else: return None
+
 def isint(token):
 	try:
 		int(token)
@@ -211,24 +233,46 @@ class HMMTOP(Vspans):
 		for span in spans: self.spans.append(span)
 
 	def replace(self, *spans):
-		removeme = []
-		for newspan in spans:
-			for j, oldspan in enumerate(self.spans):
-				if overlap(newspan, oldspan): 
-					removeme.append(j)
-		for j in removeme[::-1]: self.spans.pop(j)
+		self.delete(*spans)
 		for newspan in spans: self.spans.append(newspan)
 
+	def delete(self, *spans):
+		removeme = []
+		for j, oldspan in enumerate(self.spans):
+			for i, newspan in enumerate(spans):
+				if overlap(newspan, oldspan): 
+					removeme.append(j)
+					break
+		for j in removeme[::-1]: 
+			self.spans.pop(j)
+
 	def extend(self, *spans):
-		fuseme = []
+		fuseme = {}
 		appendme = []
 		for i, newspan in enumerate(spans):
+			notfound = 1
 			for j, oldspan in enumerate(self.spans):
-				if overlap(newspan, oldspan): fuseme.append([i, j])
-				else: appendme.append(i)
-		for pair in fuseme:
-			self.spans[pair[1]] = union(self.spans[pair[1]], spans[pair[0]])
-		for span in appendme: self.spans.append(span)
+				if overlap(newspan, oldspan): 
+					try: fuseme[i].append(j)
+					except KeyError: fuseme[i] = [j]
+					notfound = 0
+			if notfound: appendme.append(newspan)
+		#schedule fusions
+		for i in fuseme:
+			newtms = spans[i]
+			for j in fuseme[i]: 
+				newtms = union(newtms, self.spans[j])
+			appendme.append(newtms)
+		#remove fusion participants
+		popme = set()
+		for i in fuseme:
+			for j in fuseme[i]:
+				popme.add(j)
+		for i in sorted(popme)[::-1]: self.spans.pop(i)
+		#add new TMSs
+		for span in appendme: 
+			#if type(span) is int: self.spans.append(spans[span])
+			self.spans.append(span)
 
 class Point(Entity):
 	def __init__(self, pos, marker='.', style='r', size=25):
@@ -407,6 +451,21 @@ def parse_manual_tms(top, s):
 		if isverb(token): pass
 		if isint(token): indices.append(int(token))
 
+def find(entitylist, target, index=None):
+	if index is None: anymode = 1
+	else:
+		anymode = 0
+		try: iter(index)
+		except TypeError: index = [index]
+	i = 0
+	out = []
+	for e in entitylist:
+		if type(e) is target:
+			if anymode: out.append(e)
+			elif i in index: out.append(e)
+			i += 1
+	return out
+
 #def main(infiles, mode='hydropathy', walls=None, ):
 #def what(sequences, labels=None, imgfmt='png', directory=None, filename=None, title=False, dpi=80, hide=True, viewer=None, bars=[], color='auto', offset=0, statistics=False, overwrite=False, manual_tms=None, wedges=[], ywedge=2, legend=False, window=19, silent=False, axisfont=None, tickfont=None, xticks=None, mode='hydropathy', width=None, height=None):
 def main(infiles, **kwargs):
@@ -439,14 +498,10 @@ def main(infiles, **kwargs):
 	if 'no_tms' in kwargs and kwargs['no_tms']:
 		target = None
 		for token in kwargs['no_tms']:
-			i = 0
-			for e in entities:
-				if type(e) is What:
-					if token == i: 
-						for ee in e.entities:
-							if type(ee) is HMMTOP: ee.spans = []
-					i += 1
-		
+			if not isid(token): raise ValueError('--no-tms: Not an id: "{}"'.format(token))
+			for e in find(entities, What, parse_id(token)):
+				for ee in find(e.entities, HMMTOP): ee.spans = []
+				
 	if 'add_tms' in kwargs and kwargs['add_tms']:
 		for tms in kwargs['add_tms']:
 			stms = tms.split(':')
@@ -461,122 +516,106 @@ def main(infiles, **kwargs):
 
 	if 'add_marker' in kwargs and kwargs['add_marker']:
 		for marker in kwargs['add_marker']:
-			target = None
 			pos = []
 			color = None
 			index = 0
+			size = 25
 
-			for token in marker.split(':'): 
-				if token.startswith('+'): index = int(token[1:])
+			for i, token in enumerate(marker.split(':')): 
+				if isid(token) and not i: index = parse_id(token)
 				elif isint(token[0]) and not pos:
 					pos = [int(n) for n in token.split(',')]
+				elif isint(token[0]) and pos:
+					size = int(token)
 				else: color = token
 
 
-			i = 0
-			for e in entities:
-				if type(e) is What:
-					if i == index:
-						target = e
-					i += 1
-
-			if target is None: continue
-
 			done = []
-			for e in target.entities:
-				if type(e) is Hydropathy:
-					if color is None: color = e.style
-					for pair in zip(e.X, e.Y):
+			for e in find(entities, What, index):
+				for ee in find(e.entities, Hydropathy):
+					if color is None: color = ee.style
+
+					for pair in zip(ee.X, ee.Y):
 						for x in pos:
 							if x == pair[0]:
-								if np.isnan(pair[1]): entities.append(Point([x,0], marker='o', style=color, size=100))
-								else: entities.append(Point(pair, marker='o', style=color, size=100))
+								if np.isnan(pair[1]): entities.append(Point([x,0], marker='o', style=color, size=size))
+								else: entities.append(Point(pair, marker='o', style=color, size=size))
 								done.append(x)
 					for x in pos:
 						if x not in done:
-							entities.append(Point([x,0], marker='o', style=color, size=100))
+							entities.append(Point([x,0], marker='o', style=color, size=size))
 
 	if 'extend_tms' in kwargs and kwargs['extend_tms']:
 		for tms in kwargs['extend_tms']:
 			stms = tms.split(':')
-			target = None
 			index = 0
 			spans = []
 			color = None
 
 			for i, token in enumerate(stms):
-				if target is None:
-					if token.startswith('+'):
-						index = int(token[1:])
-					j = 0
-					for e in entities:
-						if type(e) is What:
-							if index == j: target = e
-							j += 1
-					if target is None:
-						warn('Could not find sequence +{}, skipped'.format(index))
-						break
-				elif not spans and isint(token[0]):
-					for span in token.split(','):
-						if len(span.split('-')) == 1: spans.append([int(span)]*2)
-						else: spans.append([int(n) for n in span.split('-')])
+				if i == 0 and isid(token):
+					index = parse_id(token)
+				elif not spans and isspans(token): spans = parse_spans(token)
 				else: color = token
-			for e in target.entities:
-				if type(e) is HMMTOP:
-					if color is None: color = e.style
-					extendme = {}
 
-					#search
-					for i, oldspan in enumerate(e.spans):
-						for j, newspan in enumerate(spans):
-							if overlap(oldspan, newspan):
-								try: extendme[j].append(i)
-								except KeyError: extendme[j] = [i]
-					#integration
-					entities.append(HMMTOP('', style=color))
-					for j in extendme:
-						newspan = spans[j]
-						for i in extendme[j][::-1]:
-							newspan = union(newspan, e.spans.pop(i))
-						entities[-1].spans.append(newspan)
-							
+			for e in find(entities, What, index):
+				for ee in e.entities:
+					if type(ee) is HMMTOP:
+						if color is None or color == e.style: 
+							color = e.style
+							for span in spans: ee.extend(span)
+						else:
+							extendme = {}
+
+							#search
+							for i, oldspan in enumerate(e.spans):
+								for j, newspan in enumerate(spans):
+									if overlap(oldspan, newspan):
+										try: extendme[j].append(i)
+										except KeyError: extendme[j] = [i]
+							#integration
+							entities.append(HMMTOP('', style=color))
+							for j in extendme:
+								newspan = spans[j]
+								for i in extendme[j][::-1]:
+									newspan = union(newspan, e.spans.pop(i))
+								entities[-1].spans.append(newspan)
+									
 	#if an existing TMS on sequence +x overlaps with a TMS defined by delete_tms, erase it
 	if 'delete_tms' in kwargs and kwargs['delete_tms']:
 		for tms in kwargs['delete_tms']:
 			stms = tms.split(':')
 
-			target = None
 			index = 0
 			spans = []
 
 			for i, token in enumerate(stms):
-				if target is None:
-					if token.startswith('+'): 
-						index = int(token[1:])
-					#figure out which entity is #id
-					j = 0
-					for e in entities:
-						if type(e) is What:
-							if index == j: 
-								target = e
-								break 
-							j += 1
-					if target is None: 
-						warn('Could not find sequence +{}, skipped'.format(index))
-						break
-				elif not spans and isint(token[0]):
-					for span in token.split(','):
-						if len(span.split('-')) == 1: spans.append([int(span)]*2)
-						else: spans.append([int(n) for n in span.split('-')])
+				if isid(token) and not i: index = parse_id(token)
+				elif not spans and isspans(token): spans = parse_spans(token)
 				else: color = token
-			for e in target.entities:
-				if type(e) is HMMTOP:
-					deleteme = []
-					for i, oldspan in enumerate(e.spans):
-						for j, newspan in enumerate(spans):
-							if overlap(oldspan, newspan): deleteme.append(i)
-					for i in deleteme[::-1]: e.spans.pop(i)
 
+			for e in find(entities, What, index):
+				for ee in find(e.entities, HMMTOP): ee.delete(*spans)
+
+	if 'replace_tms' in kwargs and kwargs['replace_tms']:
+		for tms in kwargs['replace_tms']:
+			stms = tms.split(':')
+			index = 0
+			spans = []
+			color = None
+
+			for i, token in enumerate(stms):
+				if isid(token) and not i: index = parse_id(token)
+				elif not spans and isspans(token): spans = parse_spans(token)
+				else: color = token
+
+			for e in find(entities, What, index):
+				for ee in find(e.entities, HMMTOP):
+					if color is None or color == ee.style: ee.replace(*spans)
+					else:
+						ee.delete(*spans)
+						entities.append(HMMTOP('', style=color))
+						entities[-1].spans = spans
 
 	if 'bars' in kwargs and kwargs['bars'] is not None: 
 		[entities.append(wall) for wall in parse_walls(kwargs['bars'], wedge=0)]
@@ -695,7 +734,7 @@ if __name__ == '__main__':
 	parser.add_argument('-at', '--add-tms', metavar='x0-x1(:color)', nargs='+', help='Adds TMSs to plot, e.g. 40-60:red 65-90:blue to add a red TMS covering residues 40 to 60 and a blue one covering residues 65 to 90 (default color: orange)')
 	parser.add_argument('-dt', '--delete-tms', metavar='(+id):x0-x1,x0-x1', nargs='+', help='Deletes TMSs on plot. Use +id to specify which sequence\'s TMSs should be deleted, e.g. "+0:5-25,30-40" to delete overlapping TMSs predicted for the first sequence and "+2:60-80:red,+4:70-95:blue" to delete overlapping TMSs predicted for the third and fifth sequence. +id specification propagates rightward and defaults to +0.')
 	parser.add_argument('-et', '--extend-tms', metavar='(+id):x0-x1(:color)', nargs='+', help='Extends TMSs on plot. Use +id to specify which sequence\'s TMSs should be extended, e.g. "+0:5-25,30-40" to extend TMSs predicted for the first sequence to include residues 5-25 and 30-40 without changing colors and "+2:60-80:red,+4:70-95:blue" to extend TMSs predicted for the third sequence to include residues 60 to 80 and recolor them red and TMSs predicted for the fifth sequence to include residues 70 to 95 and recolor them blue. +id specification propagates rightward and defaults to +0.')
-	parser.add_argument('-nt', '--no-tms', metavar='(+id)', nargs='+', type=int, help='Erases all TMSs for specified sequences. Applies early, so other TMS operations will override this effect.')
+	parser.add_argument('-nt', '--no-tms', metavar='(+id)', nargs='+', help='Erases all TMSs for specified sequences. Applies early, so other TMS operations will override this effect.')
 	parser.add_argument('-rt', '--replace-tms', metavar='(+id):x0-x1(:color)', nargs='+', help='Replaces TMSs on plot. Use +id to specify which sequence\'s TMSs should be replaced, e.g. "+0:5-25,30-40" to replace overlapping TMSs predicted for the first sequence with new TMSs spanning 5-25 and 30-40 without changing colors and "+2:60-80:red +4:70-95:blue" to replace overlapping TMSs predicted for the third sequence with a new TMS spanning residues 60 to 80 and recolor them red and overlapping TMSs predicted for the fifth sequence with a new TMS spanning residues 70 to 95 and recolor it blue. +id specification propagates rightward and defaults to +0.')
 
 	#parser.add_argument('-ab', '--add-box', metavar='')
