@@ -230,6 +230,17 @@ class HMMTOP(Vspans):
 			self.spans[pair[1]] = union(self.spans[pair[1]], spans[pair[0]])
 		for span in appendme: self.spans.append(span)
 
+class Point(Entity):
+	def __init__(self, pos, marker='.', style='r', size=25):
+		self.x, self.y = pos
+		self.marker = marker
+		self.style = style
+		self.size = size
+
+	def draw(self, plot):
+		plot.ax.scatter([self.x], [self.y], marker=self.marker, color=self.style, s=self.size)
+		
+	
 class Hydropathy(Curve):
 
 	def __init__(self, gseq, style='r', offset=0, window=19):
@@ -425,6 +436,17 @@ def main(infiles, **kwargs):
 					else: entities.append(What(seq, color=color))
 					n += 1
 
+	if 'no_tms' in kwargs and kwargs['no_tms']:
+		target = None
+		for token in kwargs['no_tms']:
+			i = 0
+			for e in entities:
+				if type(e) is What:
+					if token == i: 
+						for ee in e.entities:
+							if type(ee) is HMMTOP: ee.spans = []
+					i += 1
+		
 	if 'add_tms' in kwargs and kwargs['add_tms']:
 		for tms in kwargs['add_tms']:
 			stms = tms.split(':')
@@ -437,8 +459,81 @@ def main(infiles, **kwargs):
 				entities.append(HMMTOP('', style=color, alpha=None))
 				entities[-1].spans = spans
 
-	if 'extend_tms' in kwargs and kwargs['extend_tms']: pass
-				
+	if 'add_marker' in kwargs and kwargs['add_marker']:
+		for marker in kwargs['add_marker']:
+			target = None
+			pos = []
+			color = None
+			index = 0
+
+			for token in marker.split(':'): 
+				if token.startswith('+'): index = int(token[1:])
+				elif isint(token[0]) and not pos:
+					pos = [int(n) for n in token.split(',')]
+				else: color = token
+
+			i = 0
+			for e in entities:
+				if type(e) is What:
+					if i == index:
+						target = e
+
+			for e in target.entities:
+				if type(e) is Hydropathy:
+					if color is None: color = e.style
+					for pair in zip(e.X, e.Y):
+						for x in pos:
+							if x == pair[0]:
+								entities.append(Point(pair, marker='o', style=color, size=25))
+								break
+					y = 0
+						
+
+	if 'extend_tms' in kwargs and kwargs['extend_tms']:
+		for tms in kwargs['extend_tms']:
+			stms = tms.split(':')
+			target = None
+			index = 0
+			spans = []
+			color = None
+
+			for i, token in enumerate(stms):
+				if target is None:
+					if token.startswith('+'):
+						index = int(token[1:])
+					j = 0
+					for e in entities:
+						if type(e) is What:
+							if index == j: target = e
+							j += 1
+					if target is None:
+						warn('Could not find sequence +{}, skipped'.format(index))
+						break
+				elif not spans and isint(token[0]):
+					for span in token.split(','):
+						if len(span.split('-')) == 1: spans.append([int(span)]*2)
+						else: spans.append([int(n) for n in span.split('-')])
+				else: color = token
+			for e in target.entities:
+				if type(e) is HMMTOP:
+					if color is None: color = e.style
+					extendme = {}
+
+					#search
+					for i, oldspan in enumerate(e.spans):
+						for j, newspan in enumerate(spans):
+							if overlap(oldspan, newspan):
+								try: extendme[j].append(i)
+								except KeyError: extendme[j] = [i]
+					#integration
+					entities.append(HMMTOP('', style=color))
+					for j in extendme:
+						newspan = spans[j]
+						for i in extendme[j][::-1]:
+							newspan = union(newspan, e.spans.pop(i))
+						entities[-1].spans.append(newspan)
+							
+	#if an existing TMS on sequence +x overlaps with a TMS defined by delete_tms, erase it
 	if 'delete_tms' in kwargs and kwargs['delete_tms']:
 		for tms in kwargs['delete_tms']:
 			stms = tms.split(':')
@@ -460,7 +555,7 @@ def main(infiles, **kwargs):
 								break 
 							j += 1
 					if target is None: 
-						warn('Could not find sequence #{}, skipped'.format(index))
+						warn('Could not find sequence +{}, skipped'.format(index))
 						break
 				elif not spans and isint(token[0]):
 					for span in token.split(','):
@@ -523,7 +618,8 @@ def main(infiles, **kwargs):
 		plot.ax.set_xlabel(plot.ax.get_xlabel(), fontsize=kwargs['axis_font'])
 		plot.ax.set_ylabel(plot.ax.get_ylabel(), fontsize=kwargs['axis_font'])
 
-	
+	if 'tick_font' in kwargs and kwargs['tick_font'] is not None:
+		plot.ax.tick_params(labelsize=kwargs['tick_font'])
 
 	if title is not None: plot.ax.set_title(title)
 	if outfile is None: outfile = sanitize(plot.ax.get_title())
@@ -558,7 +654,7 @@ def parse_walls(strlist, wedge=1, single=False):
 	return out
 
 if __name__ == '__main__': 
-	parser = argparse.ArgumentParser()
+	parser = argparse.ArgumentParser(description='')
 
 	parser.add_argument('infile', nargs='*', default=['/dev/stdin'], help='sequence files to read in')
 	parser.add_argument('-a', metavar='viewer', help='Viewer to be used for opening graphs')
@@ -583,15 +679,21 @@ if __name__ == '__main__':
 	parser.add_argument('--axis-font', metavar='size', type=int, help='Axis label size (pt)')
 	parser.add_argument('--height', metavar='height', type=float, help='Plot height in inches (default:5.5)')
 	parser.add_argument('--mode', default='hydropathy', help='mode to run QUOD in (\033[1mhydropathy\033[0m, entropy)')
-	parser.add_argument('--x-offset', metavar='init_resi', default=0, type=int, help='Sets starting x-value')
+	parser.add_argument('--tick-font', metavar='size', type=int, help='Tick label size')
 	parser.add_argument('--viewer', metavar='viewer', default=None, help='Viewer to be used for opening plots')
 	parser.add_argument('--width', metavar='width', type=float, help='Plot width in inches (default:dynamic)')
 	parser.add_argument('--window', metavar='windowsize', default=19, help='Window size for hydropathy')
+	parser.add_argument('--x-offset', metavar='init_resi', default=0, type=int, help='Sets starting x-value')
 
 	parser.add_argument('-at', '--add-tms', metavar='x0-x1(:color)', nargs='+', help='Adds TMSs to plot, e.g. 40-60:red 65-90:blue to add a red TMS covering residues 40 to 60 and a blue one covering residues 65 to 90 (default color: orange)')
 	parser.add_argument('-dt', '--delete-tms', metavar='(+id):x0-x1,x0-x1', nargs='+', help='Deletes TMSs on plot. Use +id to specify which sequence\'s TMSs should be deleted, e.g. "+0:5-25,30-40" to delete overlapping TMSs predicted for the first sequence and "+2:60-80:red,+4:70-95:blue" to delete overlapping TMSs predicted for the third and fifth sequence. +id specification propagates rightward and defaults to +0.')
 	parser.add_argument('-et', '--extend-tms', metavar='(+id):x0-x1(:color)', nargs='+', help='Extends TMSs on plot. Use +id to specify which sequence\'s TMSs should be extended, e.g. "+0:5-25,30-40" to extend TMSs predicted for the first sequence to include residues 5-25 and 30-40 without changing colors and "+2:60-80:red,+4:70-95:blue" to extend TMSs predicted for the third sequence to include residues 60 to 80 and recolor them red and TMSs predicted for the fifth sequence to include residues 70 to 95 and recolor them blue. +id specification propagates rightward and defaults to +0.')
+	parser.add_argument('-nt', '--no-tms', metavar='(+id)', nargs='+', type=int, help='Erases all TMSs for specified sequences. Applies early, so other TMS operations will override this effect.')
 	parser.add_argument('-rt', '--replace-tms', metavar='(+id):x0-x1(:color)', nargs='+', help='Replaces TMSs on plot. Use +id to specify which sequence\'s TMSs should be replaced, e.g. "+0:5-25,30-40" to replace overlapping TMSs predicted for the first sequence with new TMSs spanning 5-25 and 30-40 without changing colors and "+2:60-80:red +4:70-95:blue" to replace overlapping TMSs predicted for the third sequence with a new TMS spanning residues 60 to 80 and recolor them red and overlapping TMSs predicted for the fifth sequence with a new TMS spanning residues 70 to 95 and recolor it blue. +id specification propagates rightward and defaults to +0.')
+
+	#parser.add_argument('-ab', '--add-box', metavar='')
+
+	parser.add_argument('-am', '--add-marker', metavar='(+id):x1,x2,x3(:color)', nargs='+', help='Adds a circular marker at the specified positions on the hydropathy curve of the specified sequence')
 
 	args = parser.parse_args()
 
@@ -600,14 +702,14 @@ if __name__ == '__main__':
 		import warnings
 		warnings.filterwarnings('ignore', '.')
 
-	if len(args.manual_tms) == 1: tms_script = args.manual_tms[0]
-	else: 
-		tms_script = ''
-		for cmd in args.manual_tms:
-			tms_script += cmd + ' '
-	tms_script = tms_script.strip()
+	#if len(args.manual_tms) == 1: tms_script = args.manual_tms[0]
+	#else: 
+	#	tms_script = ''
+	#	for cmd in args.manual_tms:
+	#		tms_script += cmd + ' '
+	#tms_script = tms_script.strip()
 
-	main(args.infile, mode=args.mode, walls=args.walls, wall=args.wall, bars=args.bars, dpi=args.r, imgfmt=args.t, force_seq=args.s, outdir=args.d, outfile=args.o, color=args.color, title=args.title, quiet=args.q, viewer=args.a, axis_font=args.axis_font, width=args.width, height=args.height, x_offset=args.x_offset, manual_tms=tms_script, add_tms=args.add_tms, delete_tms=args.delete_tms, extend_tms=args.extend_tms, replace_tms=args.replace_tms)
+	main(args.infile, mode=args.mode, walls=args.walls, wall=args.wall, bars=args.bars, dpi=args.r, imgfmt=args.t, force_seq=args.s, outdir=args.d, outfile=args.o, color=args.color, title=args.title, quiet=args.q, viewer=args.a, axis_font=args.axis_font, width=args.width, height=args.height, x_offset=args.x_offset, add_tms=args.add_tms, delete_tms=args.delete_tms, extend_tms=args.extend_tms, replace_tms=args.replace_tms, no_tms=args.no_tms, tick_font=args.tick_font, add_marker=args.add_marker)
 
 #with open('gapxmfs_2.A.1.1.1.fa') as f: gapseq = f.read().decode('utf-8')
 #with open('mfs_2.A.1.1.1.fa') as f: seq = f.read().decode('utf-8')
