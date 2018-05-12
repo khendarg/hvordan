@@ -472,22 +472,29 @@ def main(infiles, **kwargs):
 					pos = [int(n) for n in token.split(',')]
 				else: color = token
 
+
 			i = 0
 			for e in entities:
 				if type(e) is What:
 					if i == index:
 						target = e
+					i += 1
 
+			if target is None: continue
+
+			done = []
 			for e in target.entities:
 				if type(e) is Hydropathy:
 					if color is None: color = e.style
 					for pair in zip(e.X, e.Y):
 						for x in pos:
 							if x == pair[0]:
-								entities.append(Point(pair, marker='o', style=color, size=25))
-								break
-					y = 0
-						
+								if np.isnan(pair[1]): entities.append(Point([x,0], marker='o', style=color, size=100))
+								else: entities.append(Point(pair, marker='o', style=color, size=100))
+								done.append(x)
+					for x in pos:
+						if x not in done:
+							entities.append(Point([x,0], marker='o', style=color, size=100))
 
 	if 'extend_tms' in kwargs and kwargs['extend_tms']:
 		for tms in kwargs['extend_tms']:
