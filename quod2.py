@@ -40,6 +40,12 @@ def isint(token):
 		return True
 	except ValueError: return False
 
+def isfloat(token):
+	try:
+		float(token)
+		return True
+	except ValueError: return False
+
 def warn(*args): print('[WARNING]:', *args, file=sys.stderr)
 
 def sanitize(s): return re.sub('/', '', s)
@@ -156,6 +162,23 @@ class Vspans(Entity):
 		for span in self.spans:
 			plot.ax.axvspan(span[0], span[1], facecolor=self.style, alpha=self.get_alpha())
 
+class Region(Vspans):
+	def __init__(self, spans=[], yspan=[], label='', style='orange', alpha=None, pos='above', size=8):
+		Vspans.__init__(self, spans=spans, style=style, alpha=alpha)
+		self.label = label
+		self.yspan = yspan
+		self.pos = pos
+		self.size = size
+
+	def draw(self, plot):
+		plot.ax.broken_barh(self.spans, self.yspan, facecolor=self.style, edgecolor='black')
+
+		if self.pos == 'above':
+			xytext = [self.spans[0][0], sum(self.yspan)]
+		else:
+			xytext = [self.spans[0][0], self.yspan[0]]
+		plot.ax.annotate(self.label, xy=xytext, size=self.size)
+
 class Wall(Vspans):
 	def __init__(self, spans=[], y=None, ylim=[0,1], style='black', wedge=1, single=False):
 		Vspans.__init__(self, spans=spans, style=style)
@@ -182,8 +205,8 @@ class Wall(Vspans):
 			for i, x in enumerate(span): 
 				plot.ax.axvline(x=x, color='black', ymin=ylim[0], ymax=ylim[1])
 				if self.wedge:
-					if single:
-						if wedge >= 0: marker = '>'
+					if self.single:
+						if self.wedge >= 0: marker = '>'
 						else: marker = '<'
 					else:
 						if i % 2: marker = '<'
@@ -561,26 +584,19 @@ def main(infiles, **kwargs):
 			for e in find(entities, What, index):
 				for ee in e.entities:
 					if type(ee) is HMMTOP:
-						if color is None or color == e.style: 
-							color = e.style
+						if color is None or color == ee.style: 
+							color = ee.style
 							for span in spans: ee.extend(span)
 						else:
-							extendme = {}
 
 							#search
-							for i, oldspan in enumerate(e.spans):
+							for i, oldspan in enumerate(ee.spans):
 								for j, newspan in enumerate(spans):
-									if overlap(oldspan, newspan):
-										try: extendme[j].append(i)
-										except KeyError: extendme[j] = [i]
+									if overlap(oldspan, newspan): ee.delete(newspan)
 							#integration
 							entities.append(HMMTOP('', style=color))
-							for j in extendme:
-								newspan = spans[j]
-								for i in extendme[j][::-1]:
-									newspan = union(newspan, e.spans.pop(i))
-								entities[-1].spans.append(newspan)
-									
+							entities[-1].spans = spans
+
 	#if an existing TMS on sequence +x overlaps with a TMS defined by delete_tms, erase it
 	if 'delete_tms' in kwargs and kwargs['delete_tms']:
 		for tms in kwargs['delete_tms']:
@@ -616,6 +632,48 @@ def main(infiles, **kwargs):
 						ee.delete(*spans)
 						entities.append(HMMTOP('', style=color))
 						entities[-1].spans = spans
+
+	if 'add_region' in kwargs and kwargs['add_region']:
+		for region in kwargs['add_region']:
+			tokens = ['']
+			skip = 0
+			nosplit = 0
+			for i, c in enumerate(region):
+				if skip:
+					skip -= 1
+					continue
+				if c == '\\': 
+					try:
+						if region[i+1] == ':': 
+							nosplit = 1
+							tokens[-1] += c
+					except IndexError: tokens[-1].append(c)
+				elif nosplit:
+					tokens[-1] += c
+					nosplit -= 1
+				elif c == ':': tokens.append('')
+				else: tokens[-1] += c
+			spans = []
+			y = None
+			label = None
+			color = None
+			size = None
+
+			for token in tokens:
+				if isspans(token) and not spans: spans = parse_spans(token)
+				elif isfloat(token) and y is None: y = float(token)
+				elif label is None: label = token.replace('\\', '')
+				elif color is None: color = token
+				elif isint(token) and size is None: size = int(token)
+
+			for i in range(len(spans)): spans[i][1] = spans[i][1] - spans[i][0]
+
+			if y is None: y = -2
+			if label is None: label = 'untitled region'
+			if size is None: size = 8
+
+			entities.append(Region(spans, [y-0.15, 0.15], label, style=color, size=size))
+			#for token in re.split(r':', region): print(token)
 
 	if 'bars' in kwargs and kwargs['bars'] is not None: 
 		[entities.append(wall) for wall in parse_walls(kwargs['bars'], wedge=0)]
@@ -731,15 +789,15 @@ if __name__ == '__main__':
 	parser.add_argument('--window', metavar='windowsize', default=19, help='Window size for hydropathy')
 	parser.add_argument('--x-offset', metavar='init_resi', default=0, type=int, help='Sets starting x-value')
 
+	parser.add_argument('-ar', '--add-region', metavar='x0-x1(:color)(:"label")', nargs='+')
+
+	parser.add_argument('-am', '--add-marker', metavar='(+id):x1,x2,x3,...xn(:color)', nargs='+', help='Adds a circular marker at the specified positions on the hydropathy curve of the specified sequence')
+
 	parser.add_argument('-at', '--add-tms', metavar='x0-x1(:color)', nargs='+', help='Adds TMSs to plot, e.g. 40-60:red 65-90:blue to add a red TMS covering residues 40 to 60 and a blue one covering residues 65 to 90 (default color: orange)')
 	parser.add_argument('-dt', '--delete-tms', metavar='(+id):x0-x1,x0-x1', nargs='+', help='Deletes TMSs on plot. Use +id to specify which sequence\'s TMSs should be deleted, e.g. "+0:5-25,30-40" to delete overlapping TMSs predicted for the first sequence and "+2:60-80:red,+4:70-95:blue" to delete overlapping TMSs predicted for the third and fifth sequence. +id specification propagates rightward and defaults to +0.')
 	parser.add_argument('-et', '--extend-tms', metavar='(+id):x0-x1(:color)', nargs='+', help='Extends TMSs on plot. Use +id to specify which sequence\'s TMSs should be extended, e.g. "+0:5-25,30-40" to extend TMSs predicted for the first sequence to include residues 5-25 and 30-40 without changing colors and "+2:60-80:red,+4:70-95:blue" to extend TMSs predicted for the third sequence to include residues 60 to 80 and recolor them red and TMSs predicted for the fifth sequence to include residues 70 to 95 and recolor them blue. +id specification propagates rightward and defaults to +0.')
 	parser.add_argument('-nt', '--no-tms', metavar='(+id)', nargs='+', help='Erases all TMSs for specified sequences. Applies early, so other TMS operations will override this effect.')
 	parser.add_argument('-rt', '--replace-tms', metavar='(+id):x0-x1(:color)', nargs='+', help='Replaces TMSs on plot. Use +id to specify which sequence\'s TMSs should be replaced, e.g. "+0:5-25,30-40" to replace overlapping TMSs predicted for the first sequence with new TMSs spanning 5-25 and 30-40 without changing colors and "+2:60-80:red +4:70-95:blue" to replace overlapping TMSs predicted for the third sequence with a new TMS spanning residues 60 to 80 and recolor them red and overlapping TMSs predicted for the fifth sequence with a new TMS spanning residues 70 to 95 and recolor it blue. +id specification propagates rightward and defaults to +0.')
-
-	#parser.add_argument('-ab', '--add-box', metavar='')
-
-	parser.add_argument('-am', '--add-marker', metavar='(+id):x1,x2,x3(:color)', nargs='+', help='Adds a circular marker at the specified positions on the hydropathy curve of the specified sequence')
 
 	args = parser.parse_args()
 
@@ -748,6 +806,7 @@ if __name__ == '__main__':
 		import warnings
 		warnings.filterwarnings('ignore', '.')
 
+	#maybe later
 	#if len(args.manual_tms) == 1: tms_script = args.manual_tms[0]
 	#else: 
 	#	tms_script = ''
@@ -755,16 +814,5 @@ if __name__ == '__main__':
 	#		tms_script += cmd + ' '
 	#tms_script = tms_script.strip()
 
-	main(args.infile, mode=args.mode, walls=args.walls, wall=args.wall, bars=args.bars, dpi=args.r, imgfmt=args.t, force_seq=args.s, outdir=args.d, outfile=args.o, color=args.color, title=args.title, quiet=args.q, viewer=args.a, axis_font=args.axis_font, width=args.width, height=args.height, x_offset=args.x_offset, add_tms=args.add_tms, delete_tms=args.delete_tms, extend_tms=args.extend_tms, replace_tms=args.replace_tms, no_tms=args.no_tms, tick_font=args.tick_font, add_marker=args.add_marker)
-
-#with open('gapxmfs_2.A.1.1.1.fa') as f: gapseq = f.read().decode('utf-8')
-#with open('mfs_2.A.1.1.1.fa') as f: seq = f.read().decode('utf-8')
-#plot = Plot()
-#entities = []
-#entities.append(What(plot, seq, style=0))
-#entities.append(What(plot, gapseq, style=1))
-##entities.append(HMMTOP(plot, seq))
-#for e in entities: e.draw()
-#plot.save('test.png')
-#os.system('xdg-open test.png')
+	main(args.infile, mode=args.mode, walls=args.walls, wall=args.wall, bars=args.bars, dpi=args.r, imgfmt=args.t, force_seq=args.s, outdir=args.d, outfile=args.o, color=args.color, title=args.title, quiet=args.q, viewer=args.a, axis_font=args.axis_font, width=args.width, height=args.height, x_offset=args.x_offset, add_tms=args.add_tms, delete_tms=args.delete_tms, extend_tms=args.extend_tms, replace_tms=args.replace_tms, no_tms=args.no_tms, tick_font=args.tick_font, add_marker=args.add_marker, add_region=args.add_region)
 
