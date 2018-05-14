@@ -171,12 +171,12 @@ class Region(Vspans):
 		self.size = size
 
 	def draw(self, plot):
-		plot.ax.broken_barh(self.spans, self.yspan, facecolor=self.style, edgecolor='black')
+		plot.ax.broken_barh(self.spans, self.yspan, facecolor=self.style, edgecolor=(1,1,1,0.5), zorder=2.0)
 
 		if self.pos == 'above':
-			xytext = [self.spans[0][0], sum(self.yspan)]
+			xytext = [self.spans[0][0], sum(self.yspan)+0.01]
 		else:
-			xytext = [self.spans[0][0], self.yspan[0]]
+			xytext = [self.spans[0][0], self.yspan[0]+0.01]
 		plot.ax.annotate(self.label, xy=xytext, size=self.size)
 
 class Wall(Vspans):
@@ -658,6 +658,7 @@ def main(infiles, **kwargs):
 			label = None
 			color = None
 			size = None
+			alpha = None
 
 			for token in tokens:
 				if isspans(token) and not spans: spans = parse_spans(token)
