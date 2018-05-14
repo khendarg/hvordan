@@ -27,7 +27,7 @@ def parse_spans(token):
 	return spans
 
 def isid(token):
-	if re.match('^\+?[0-9]+$', token): return True
+	if re.match('^\+[0-9]+$', token): return True
 	else: return False
 
 def parse_id(token):
@@ -551,7 +551,6 @@ def main(infiles, **kwargs):
 				elif isint(token[0]) and pos:
 					size = int(token)
 				else: color = token
-
 
 			done = []
 			for e in find(entities, What, index):
