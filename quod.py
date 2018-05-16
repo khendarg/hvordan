@@ -233,9 +233,11 @@ class HMMTOP(Vspans):
 		if not fasta.startswith('>'): fasta = '>seq\n' + fasta
 		p = subprocess.Popen(['hmmtop', '-if=--', '-is=pseudo', '-sf=FAS', '-pi=spred'], stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 		out, err = p.communicate(input=fasta)
+		print(out)
 		print(err.strip(), file=sys.stderr)
 
-		indices = re.findall('(?:IN|OUT)((?:\s*(?:[0-9]+))+)', out.strip())[0].strip().split()
+		indices = re.findall('(?: IN| OUT)((?:\s*(?:[0-9]+))+)', out.strip())[0].strip().split()
+		print(indices)
 		indices = [int(i) for i in indices[1:]]
 
 		if not indices: return
