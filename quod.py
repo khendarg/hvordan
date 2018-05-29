@@ -229,10 +229,8 @@ class HMMTOP(Vspans):
 		#no FASTA? no problem
 
 		if load is not None:
-			print(load)
 			with open(load) as f:
 				indices = self.parse_hmmtop(f.read().decode('utf-8'))
-			print(indices)
 		elif nohmmtop: indices = []
 		else: 
 			if not fasta.startswith('>'): fasta = '>seq\n' + fasta
@@ -516,13 +514,25 @@ def main(infiles, **kwargs):
 	no_tms = []
 	if 'load_tms' in kwargs and kwargs['load_tms']:
 		n_id = 0
+		n_loads = 0
 		for token in kwargs['load_tms']:
 			if isid(token): 
 				no_tms.append(parse_id(token))
 				n_id += 1
 			else: 
-				x = HMMTOP(gseq='', nohmmtop=True, load=token)
+				if n_id:
+					if (no_tms[-1] % 3) == 0: style = 'orange'
+					elif (no_tms[-1] % 3) == 1: style = 'cyan'
+					elif (no_tms[-1] % 3) == 2: style = 'purple'
+					else: style = 'orange'
+				else:
+					if (n_loads % 3) == 0: style = 'orange'
+					elif (n_loads % 3) == 1: style = 'cyan'
+					elif (n_loads % 3) == 2: style = 'purple'
+					else: style = 'orange'
+				x = HMMTOP(gseq='', nohmmtop=True, load=token, style=style)
 				entities.append(x)
+				n_loads += 1
 		if n_id == 0: no_tms.append(0)
 
 
