@@ -434,10 +434,11 @@ class Hydropathy(Curve):
 		plot.ax.plot(self.X, self.Y, color=self.style, linewidth=1)
 
 class What(Entity):
-	def __init__(self, seq, style=0, tmscolor=None, linecolor=None, color=None, nohmmtop=False, entropy=False):
+	def __init__(self, seq, style=0, tmscolor=None, linecolor=None, color=None, nohmmtop=False, entropy=False, window=19):
 		Entity.__init__(self)
 		self.seq = seq
 		self.style = style
+		self.window = window
 
 		def choose(*options):
 			for x in options[::-1]:
@@ -449,9 +450,9 @@ class What(Entity):
 
 		self.entities = []
 		if entropy:
-			self.entities.append(Entropy(seq, style=self.get_curve_color()))
+			self.entities.append(Entropy(seq, style=self.get_curve_color(), window=self.window))
 		else: 
-			self.entities.append(Hydropathy(seq, style=self.get_curve_color()))
+			self.entities.append(Hydropathy(seq, style=self.get_curve_color(), window=self.window))
 		self.entities.append(HMMTOP(seq, style=self.get_tms_color(), nohmmtop=nohmmtop))
 
 	def get_title(self, showlength=True):
@@ -575,6 +576,9 @@ def main(infiles, **kwargs):
 	if 'entropy' in kwargs and kwargs['entropy']: entropy = True
 	else: entropy = False
 
+	if 'window' in kwargs and kwargs['window'] is not None: window = kwargs['window']
+	else: window = 19
+
 	if 'no_tms' in kwargs and kwargs['no_tms']:
 		for token in kwargs['no_tms']:
 			if not isid(token): raise ValueError('--no-tms: Not an id: "{}"'.format(token))
@@ -587,8 +591,8 @@ def main(infiles, **kwargs):
 		for seq in infiles: 
 			if n in no_tms: nohmmtop = 1
 			else: nohmmtop = 0
-			if color == 'auto': entities.append(What(seq, style=n, nohmmtop=nohmmtop, entropy=entropy))
-			else: entities.append(What(seq, color=color, nohmmtop=nohmmtop, entropy=entropy))
+			if color == 'auto': entities.append(What(seq, style=n, nohmmtop=nohmmtop, entropy=entropy, window=window))
+			else: entities.append(What(seq, color=color, nohmmtop=nohmmtop, entropy=entropy, window=window))
 			n += 1
 	else:
 		for fn in infiles:
@@ -596,8 +600,8 @@ def main(infiles, **kwargs):
 				for seq in split_fasta(f.read().decode('utf-8')):
 					if n in no_tms: nohmmtop = 1
 					else: nohmmtop = 0
-					if color == 'auto': entities.append(What(seq, style=n, nohmmtop=nohmmtop, entropy=entropy))
-					else: entities.append(What(seq, color=color, nohmmtop=nohmmtop, entropy=entropy))
+					if color == 'auto': entities.append(What(seq, style=n, nohmmtop=nohmmtop, entropy=entropy, window=window))
+					else: entities.append(What(seq, color=color, nohmmtop=nohmmtop, entropy=entropy, window=window))
 					n += 1
 
 	if 'add_tms' in kwargs and kwargs['add_tms']:
@@ -867,7 +871,7 @@ if __name__ == '__main__':
 	parser.add_argument('--tick-font', metavar='size', type=int, help='Tick label size')
 	parser.add_argument('--viewer', metavar='viewer', default=None, help='Viewer to be used for opening plots')
 	parser.add_argument('--width', metavar='width', type=float, help='Plot width in inches (default:dynamic)')
-	parser.add_argument('--window', metavar='windowsize', default=19, help='Window size for hydropathy')
+	parser.add_argument('--window', metavar='windowsize', type=int, default=19, help='Window size for hydropathy')
 	parser.add_argument('--x-offset', metavar='init_resi', default=0, type=int, help='Sets starting x-value')
 	parser.add_argument('--xticks', default=None, type=int, help='X tick spacing')
 
@@ -897,5 +901,5 @@ if __name__ == '__main__':
 	#		tms_script += cmd + ' '
 	#tms_script = tms_script.strip()
 
-	main(args.infile, mode=args.mode, walls=args.walls, wall=args.wall, bars=args.bars, dpi=args.r, imgfmt=args.t, force_seq=args.s, outdir=args.d, outfile=args.o, color=args.color, title=args.title, quiet=args.q, viewer=args.a, axis_font=args.axis_font, width=args.width, height=args.height, x_offset=args.x_offset, add_tms=args.add_tms, delete_tms=args.delete_tms, extend_tms=args.extend_tms, replace_tms=args.replace_tms, no_tms=args.no_tms, tick_font=args.tick_font, add_marker=args.add_marker, add_region=args.add_region, xticks=args.xticks, load_tms=args.load_tms, entropy=args.entropy)
+	main(args.infile, mode=args.mode, walls=args.walls, wall=args.wall, bars=args.bars, dpi=args.r, imgfmt=args.t, force_seq=args.s, outdir=args.d, outfile=args.o, color=args.color, title=args.title, quiet=args.q, viewer=args.a, axis_font=args.axis_font, width=args.width, height=args.height, x_offset=args.x_offset, add_tms=args.add_tms, delete_tms=args.delete_tms, extend_tms=args.extend_tms, replace_tms=args.replace_tms, no_tms=args.no_tms, tick_font=args.tick_font, add_marker=args.add_marker, add_region=args.add_region, xticks=args.xticks, load_tms=args.load_tms, entropy=args.entropy, window=args.window)
 
