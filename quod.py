@@ -255,6 +255,7 @@ class HMMTOP(Vspans):
 		self.spans = [[indices[i], indices[i+1]] for i in range(0, len(indices), 2)]
 
 	def parse_hmmtop(self, topout):
+		if not topout: return []
 		indices = re.findall('(?: IN| OUT)((?:\s*(?:[0-9]+))+)', topout.strip())[0].strip().split()
 		indices = [int(i) for i in indices[1:]]
 		return indices
@@ -607,7 +608,7 @@ def main(infiles, **kwargs):
 				if len(span.split('-')) == 1: indices = [int(span)]*2
 				else: indices = [int(x) for x in span.split('-')]
 				spans = [indices[i:i+2] for i in range(0, len(indices), 2)]
-				entities.append(HMMTOP('', style=color, alpha=None))
+				entities.append(HMMTOP('', style=color, alpha=None, nohmmtop=True))
 				entities[-1].spans = spans
 
 	if 'add_marker' in kwargs and kwargs['add_marker']:
