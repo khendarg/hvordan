@@ -425,6 +425,7 @@ class Hydropathy(Curve):
 
 			self.Y = np.array(newhydro)
 			self.X = np.arange(offset+1, len(self.Y)+1)+window//2
+
 	def draw(self, plot):
 		plot.xlim[0] = min(plot.xlim[0], self.X[0] - self.window//2)
 		plot.xlim[1] = max(plot.xlim[1], self.X[-1] + self.window//2)
