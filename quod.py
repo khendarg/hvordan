@@ -850,7 +850,7 @@ if __name__ == '__main__':
 	#-f filename
 	#-i flags file
 	parser.add_argument('-l', '--title', metavar='graph_title', help='Label graph with a specific title')
-	parser.add_argument('-m', '--manual-tms', metavar='TMSs', nargs='+', help='something something something')
+	#parser.add_argument('-m', '--mode', metavar='TMSs', nargs='+', help='something something something')
 	#CHECKME: is this used for anything automatic?
 	parser.add_argument('-o', metavar='outfile', help='Filename of graph, relative to the argument of -d if present and as normally interpreted otherwise')
 	parser.add_argument('-q', action='store_true', help='"quiet" mode, disables automatic opening of graphs')
