@@ -343,7 +343,7 @@ class Entropy(Curve):
 	def draw(self, plot):
 		plot.xlim[0] = min(plot.xlim[0], self.X[0] - self.window//2)
 		plot.xlim[1] = max(plot.xlim[1], self.X[-1] + self.window//2)
-		plot.ylim[0] = 0
+		plot.ylim[0] = 2
 		plot.ylim[1] = np.log2(20)
 
 		plot.axeslabels = ['Residue number', 'Entropy (bits)']
