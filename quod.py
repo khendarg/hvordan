@@ -371,10 +371,16 @@ class Psipred(Curve):
 			ystrn.append(float(sl[5]))
 			x.append(int(sl[0]))
 
-		self.X = np.array(x)
-		self.Ycoil = np.array(ycoil)
-		self.Yhelx = np.array(yhelx)
-		self.Ystrn = np.array(ystrn)
+		if self.window == 1:
+			self.X = np.array(x)
+			self.Ycoil = np.array(ycoil)
+			self.Yhelx = np.array(yhelx)
+			self.Ystrn = np.array(ystrn)
+		else:
+			self.X = np.array(x[self.window//2:len(x)-self.window+self.window//2])
+			self.Ycoil = np.array([np.mean(ycoil[i:i+self.window]) for i, span in enumerate(ycoil[:-self.window])])
+			self.Yhelx = np.array([np.mean(yhelx[i:i+self.window]) for i, span in enumerate(yhelx[:-self.window])])
+			self.Ystrn = np.array([np.mean(ystrn[i:i+self.window]) for i, span in enumerate(ystrn[:-self.window])])
 
 	def draw(self, plot):
 		plot.xlim[0] = min(plot.xlim[0], self.X[0] - self.window//2)
