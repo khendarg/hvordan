@@ -1,3 +1,5 @@
+**Note**: In light of Microsoft's recent acquisition of Github, this project has migrated to https://www.gitlab.com/khendarg/hvordan . This repository will remain available on Github for another month.
+
 # hvordan & Co.
 
 A suite of niche tools of variable usefulness
