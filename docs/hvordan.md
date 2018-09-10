@@ -16,11 +16,11 @@ Visit the
 
 2. **_TCDB protein database_**  
 Given that blastdbcmd runs locally, the TCDB database must be available locally through the environment variable _$BLASTDB_. 
-If possible, use [extractFamily.pl](https://github.com/SaierLaboratory/TCDBtools/blob/master/scripts/extractFamily.pl) to download the TCDB BLAST database:
+Use [extractFamily.pl](https://github.com/SaierLaboratory/TCDBtools/blob/master/scripts/extractFamily.pl) to download and format the TCDB BLAST database:
 ```bash
-extractFamily.pl -i all -f blast
+extractFamily.pl -i all -f blast -o somewhere_in_$BLASTDB
 ```
-Otherwise, you can manually download [all TCDB sequences](http://www.tcdb.org/public/tcdb) from the TCDB and run ```makeblastdb -in tcdb.fasta -out tcdb -dbtype prot```, but this script was not tested with such manually downloaded BLAST databases. 
+<!--Otherwise, you can manually download [all TCDB sequences](http://www.tcdb.org/public/tcdb) from the TCDB and run ```makeblastdb -in tcdb.fasta -out tcdb -dbtype prot```, but this script was not tested with such manually downloaded BLAST databases. -->
 
 3. **_Python 2.7+_**  
 Visit the [official website](https://www.python.org/). 
@@ -28,15 +28,16 @@ This program was not tested with more recent versions of Python but was implemen
 
 4. **_Matplotlib 1.5.1-2.0.0+_**  
 Visit the [official website](https://matplotlib.org/).
-While not required for hvordan.py itself, Matplotlib is required for the graph plotting modules, and automating graph generation is the entire point of the script.
+Matplotlib is required for the graph plotting modules, and automating graph generation is the entire point of the script.
 
 5. **_Biopython 1.70+_**
 Visit the [official website](http://biopython.org/).
-For now, index-finding for the ABCD plots will rely on pairwise2 on account of indices not being available on report.tbl.
+Biopython is used to streamline sequence input/output
+
 
 ## Instructions
 
-1. Move or symlink hvordan.py into the same directory where quod.py and tcblast.py are stored.
+1. Move or symlink hvordan.py, quod.py, and tcblast.py into your `$PYTHONPATH`.
 
 2. (Strongly recommended) Keep only the first twelve columns of each famXpander results table and move them all into the same directory. 
 ```bash
@@ -52,20 +53,24 @@ for DIR in `ls`
 	do ln -s $DIR/psiblast.tbl ../famXpander_flag/$DIR.tbl
 done
 ```
-At the moment, it is required that all table files be in the same directory.
-3. (Optional) Set the environment variable $ENTREZ\_EMAIL to an address the NCBI can contact if you send too many requests. Otherwise, just use the ```-e``` argument every time. 
+Table files may be placed in the same directory or in subdirectories named after the families they represent, but `hvordan.py` must have access to all relevant tables in order to run properly.
+3. (Optional) Set the environment variable $ENTREZ\_EMAIL to an address the NCBI can contact if you send too many requests. Otherwise, just use ```-e yourname@yoursite.com``` every time. 
 ```bash
 echo 'export ENTREZ_EMAIL=someone@example.com' >> ~/.profile
 source ~/.profile
 ```
 4. Make sure the TCDB BLAST database is installed either in the current directory or in $BLASTDB. If the database is not installed in either of these places, do this:
 ```bash
+extractFamily.pl -i all -f blast -o $SOMEWHERE_IN_YOUR_BLASTDB
+```
+or
+```bash
 wget http://www.tcdb.org/public/tcdb -O tcdb.fasta
 makeblastdb -in tcdb.fasta -out tcdb -dbtype prot
 ```
 5. Run hvordan.py. (-h and --help provide more detailed documentation)
 ```bash
-hvordan.py --p1d famXpander_trimmed --p2d 1.X.1_vs_2.Y.1/1.X.1_vs_2.Y.1 
+hvordan.py --p1d famXpander_trimmed --p2d 1.X.1_vs_2.Y.1
 ```
 
 ## Command line options
@@ -73,14 +78,25 @@ The following options are available.
 You can also run the script without arguments (or with -h or --help) to display the options:
 
 `--p1d`  directory containing _famXpander_ results (default: .)
+
 `--p2d`  directory containing _Protocol2_ results (default: .)
-`-o`     output directory (default: hvordan_out
-`-f`     families to inspect, required if using --p2d on root _Protocol2_ directories
+
+`-o`     output directory (default: hvordan_out)
+
+`-f`     families to inspect, required if using --p2d on root _Protocol2_ directories, i.e. _Protocol2_ directories containing subdirectories corresponding to families
+
 `-z`     minimum Z-score (default: 15)
+
 `-Z`     maximum Z-score (default: None)
+
 `-c`     force redownloads/redraws/regenerations (not fully implemented)
+
 `-r`     resolution of plots in DPI (default: 100)
+
 `-m`     maximum BLAST hits for the TCBLAST portion (default: 50)
+
 `-e`     Email address the NCBI can contact (default: $ENTREZ_EMAIL if set)
+
 `-i`     inspects only alignments containing at least one of these accessions
+
 `-p`     inspects only these specific pairs of accessions

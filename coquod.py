@@ -5,100 +5,26 @@
 from __future__ import division, print_function, division
 from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
 from matplotlib.figure import Figure
-import matplotlib.patches as patches
 import os, subprocess, re, sys
 import argparse
 import numpy as np
 
 from Bio import SeqIO
 
-def info(*things): print('[INFO]:', *things, file=sys.stderr)
-
 VERBOSITY = 0
-MISTAKEFUDGE = 600
-HYDROPATHY = {'G':-0.400, \
-	 'I':4.500, \
-	 'S':-0.800, \
-	 'Q':-3.500, \
-	 'E':-3.500, \
-	 'A':1.800, \
-	 'M':1.900, \
-	 'T':-0.700, \
-	 'Y':-1.300, \
-	 'H':-3.200, \
-	 'V':4.200, \
-	 'F':2.800, \
-	 'C':2.500, \
-	 'W':-0.900, \
-	 'K':-3.900, \
-	 'L':3.800, \
-	 'P':-1.600, \
-	 'N':-3.500, \
-	 'D':-3.500, \
-	 'R':-4.500, \
-	 'U':0, \
-	 'B':-3.500, \
-	 'J':-3.500, \
-	 'Z':4.150 \
-}
-AMPHIPATHICITY = {'G':0.48, \
-	 'I':1.38, \
-	 'S':-0.18, \
-	 'Q':-0.85, \
-	 'E':-0.74, \
-	 'A':0.62, \
-	 'M':0.64, \
-	 'T':-0.05, \
-	 'Y':0.26, \
-	 'H':-0.4, \
-	 'V':1.08, \
-	 'F':1.19, \
-	 'C':0.29, \
-	 'W':0.81, \
-	 'K':-1.5, \
-	 'L':1.06, \
-	 'P':0.12, \
-	 'N':-0.78, \
-	 'D':-0.90, \
-	 'R':-2.53, \
-	 'U':0, \
-	 'B':-0.84, \
-	 'J':-0.80, \
-	 'Z':1.22 \
-}
-CHARGE = {'G':0.0, \
-	 'I':0.0, \
-	 'S':0.0, \
-	 'Q':0.0, \
-	 'E':-1.0, \
-	 'A':0.0, \
-	 'M':0.0, \
-	 'T':0.0, \
-	 'Y':+0.001, \
-	 'H':+0.1, \
-	 'V':0.0, \
-	 'F':0.0, \
-	 'C':+0.1, \
-	 'W':0.0, \
-	 'K':+1.0, \
-	 'L':0.0, \
-	 'P':0.0, \
-	 'N':0.0, \
-	 'D':-1.0, \
-	 'R':+1.0, \
-	 'U':0, \
-	 'B':-0.5, \
-	 'J':-0.5, \
-	 'Z':0.0 \
-}
+
+def striph(fasta):
+	s = fasta
+	if fasta.startswith('>'): s = fasta[fasta.find('\n'):]
+	s = re.sub('[^A-Z\-]', '', s)
+	return s
+	
 
 def isspans(token):
-	''' checks if a token is a span/range '''
 	if re.match(r'^[0-9]+(?:-[0-9]+)(?:,[0-9]+(?:-[0-9]+))*$', token): return True
 	else: return False
 
 def parse_spans(token):
-	''' parses a token as a set of spans '''
 	spans = []
 	for span in token.split(','):
 		indices = span.split('-')
@@ -108,43 +34,33 @@ def parse_spans(token):
 	return spans
 
 def isid(token):
-	''' checks if a token is an ID '''
 	if re.match('^\+[0-9]+$', token): return True
 	else: return False
 
 def parse_id(token):
-	''' parses an ID '''
 	if isid(token): return int(token)
 	else: return None
 
 def isint(token):
-	''' checks if something is an int '''
 	try:
 		int(token)
 		return True
 	except ValueError: return False
 
 def isfloat(token):
-	''' checks if something is a float '''
 	try:
 		float(token)
 		return True
 	except ValueError: return False
 
-def warn(*args): 
-	''' prints a warning '''
-	print('[WARNING]:', *args, file=sys.stderr)
+def warn(*args): print('[WARNING]:', *args, file=sys.stderr)
 
-def sanitize(s): 
-	''' removes forslashes to generate UNIX-compatible filenames '''
-	return re.sub('/', '', s)
+def sanitize(s): return re.sub('/', '', s)
 
-def roundto(x, n=5):
-	''' round to the next lowest multiple of n '''
-	return (x//n)*n
+def roundto(x, n):
+	return (x//5)*5
 
 def overlap(span1, span2):
-	''' checks if two spans overlap '''
 	if span1[0] <= span2[0] <= span1[-1]: return True
 	elif span1[0] <= span2[1] <= span1[-1]: return True
 	elif span2[0] <= span1[0] <= span2[-1]: return True
@@ -152,12 +68,10 @@ def overlap(span1, span2):
 	else: return False
 
 def union(span1, span2):
-	''' produces unions of contiguous/intersecting spans '''
 	if not overlap(span1, span2): raise NotImplementedError
 	else: return [min(span1[0], span2[0]), max(span1[-1], span2[-1])]
 
 def hex2tuple(s):
-	''' turns hexes into tuples '''
 	if s.startswith('#'): s = s[1:]
 	elif s.startswith('0x'): s = s[2:]
 
@@ -167,48 +81,67 @@ def hex2tuple(s):
 	l = [int(s[i:i+2], 16)/255. for i in range(0, len(s), 2)]
 	return tuple(l)
 
+class Quodfig(object):
+	def __init__(self, modes):
+		self.fig = Figure()
+		self.canvas = FigureCanvas(self.fig)
+		self.ax = []
+		self.plots = []
+		self.width, self.height = None, None
+		self.maxl = 0
+		for m in modes:
+			self.ax.append(self.fig.add_subplot(len(modes), 1, len(self.ax)+1))
+			self.plots.append(Plot(mode=m, fig=self.fig, canvas=self.canvas, ax=self.ax[-1]))
+
+	def set_xlims(xlims):
+		for plot in self.plots: plot.set_xlims(xlims)
+
+	def render(self):
+
+		if self.width is None: self.width = (0.0265) * (self.maxl) if self.maxl > 200 else 15.
+		if self.height is None: self.height = 5.5
+
+		self.fig.set_figwidth(self.width)
+		self.fig.set_figheight(self.height)
+
+	def save(self, filename, dpi=80, format='png'):
+		self.fig.savefig(filename, dpi=dpi, format=format)
+
 class Plot(object):
-	''' a plot, as in a pair of axes and an area '''
-	def __init__(self, fig=None, canvas=None): 
-		''' constructor
-		fig: Figure object
-		canvas: FigureCanvas object
-		'''
+	def __init__(self, mode=None, fig=None, canvas=None, ax=None, window=None): 
+		self.mode = mode
 		self.fig = Figure() if fig is None else fig
 		self.canvas = FigureCanvas(self.fig) if fig is None else canvas
 
-		self.ax = self.fig.add_subplot(111)
-		self.width, self.height = None, None
+		self.ax = self.fig.add_subplot(111) if ax is None else ax
 		self.x_offset = 0
 		self.xlim = [0, 20]
-		self.ylim = [-3, 3]
+
+		if self.mode == 'entropy': 
+			self.ylim = [2., np.log2(20)]
+			self.window = 19 if window is None else window
+		elif self.mode == 'psipred': 
+			self.ylim = [0., 1.]
+			self.window = 3 if window is None else window
+		else: 
+			self.ylim = [-3., 3.]
+			self.window = 19 if window is None else window
 		self.xticks, self.yticks = None, 1
 
 		self.axeslabels = ['X', 'Y']
 		self.titles = []
 
-		self.grid = False
+	def set_xlims(self, xlims=None):
+		xlims = self.xlim if xlims is None else xlims
+		self.ax.set_xlim(xlims)
 
-		self.entities = []
+	def set_ylims(self, ylims=None):
+		ylims = self.ylim if ylims is None else ylims
+		self.ax.set_ylim(ylims)
 
-	def add(self, entity): self.entities.append(entity)
-	def pop(self, i): self.entities.pop(i)
-	def remove(self, entity): self.entities.remove(entity)
-	def __iter__(self): return iter(self.entities)
-	def __getitem__(self, i): return self.entities[i]
-	def __getslice__(self, s): return self.entities[s]
-
-	def render(self):
-		''' configure plot appropriately '''
-
-		for e in self.entities: 
-			try: e.draw(self)
-			except AttributeError:
-				print(e)
-				raise AttributeError
-
-		self.ax.set_xlim(left=self.xlim[0], right=self.xlim[1])
-		self.ax.set_ylim(bottom=self.ylim[0], top=self.ylim[1])
+	def render(self, notitle=False):
+		self.set_xlims()
+		self.set_ylims()
 		xlim = self.ax.get_xlim()
 		ylim = self.ax.get_ylim()
 
@@ -219,6 +152,7 @@ class Plot(object):
 		ylim = self.ax.get_ylim()
 
 		maxl = xlim[1] - xlim[0]
+
 		if self.xticks is None: self.xticks = roundto(maxl // 5, 5)
 
 		self.ax.set_xticks(np.arange(xlim[0], xlim[1]+1, max(1, self.xticks)))
@@ -226,202 +160,74 @@ class Plot(object):
 
 		#TODO: allow centimeters or something
 		#if self.width is None: self.width = (0.0265) * (maxl) if maxl > 600 else 15.
-		if self.width is None: self.width = (0.0265) * (maxl) if maxl > 200 else 15.
-		if self.height is None: self.height = 5.5
-		self.fig.set_figwidth(self.width)
-		self.fig.set_figheight(self.height)
-		self.fig.set_tight_layout(True)
+		#self.fig.set_tight_layout(True)
 		self.ax.set_xlabel(self.axeslabels[0])
 		self.ax.set_ylabel(self.axeslabels[1])
 
 		#only when plotting hydropathy! FIXME
 		self.ax.axhline(y=0, color='black', linewidth=0.5)
 
-		title = ''
-		for t in self.titles: 
-			if t is not None: title += '{}, '.format(t)
-		if len(title) > 40: title = title[:40] + '.....'
+		if not notitle:
+			title = ''
+			for t in self.titles: 
+				if t is not None: title += '{}, '.format(t)
+			self.ax.set_title(title[:-2])
+		else: self.ax.set_title('')
 
-		self.ax.set_title(title[:-2])
-
-		if self.grid: self.ax.grid('on')
-
-	def save(self, filename, dpi=80, format='png'):
-		''' save plot to disk '''
-		self.fig.savefig(filename, dpi=dpi, format=format)
+		return maxl
 
 class Entity(object):
-	''' something that can be drawn on a plot '''
 	def __init__(self): pass
 
-	def draw(self, plot): 
-		''' called when rendering plots '''
-		raise NotImplementedError
+	def draw(self, plot): raise NotImplementedError
 
 class Curve(Entity):
-	''' a curve '''
 	def __init__(self, X=[], Y=[], style='auto'):
-		''' constructor
-		X: iterable of floats (default:[])
-		Y: iterable of floats (default:[])
-		style: int/str, QUOD/Matplotlib-compatible color specifier (default:'auto')
-		'''
 		Entity.__init__(self)
 		self.X = X
 		self.Y = Y
 		self.style = style
 
-	def set_color(self, style=None):
-		''' set Curve color. If style is an int, automatically select from three '''
-		try: style = int(style)
-		except ValueError: pass
-		except TypeError: pass
-
-		if style is None: style = self.style
-
-		if type(style) is int: 
-			if (style % 3 == 0): self.style = 'red'
-			if (style % 3 == 1): self.style = 'blue'
-			if (style % 3 == 2): self.style = 'green'
-		else: self.style = style
-
 	def draw(self, plot): 
-		''' called when rendering plots '''
-		self.set_color()
-		#plot.xlim[0] = min(plot.xlim[0], self.X[0])
-		#plot.xlim[1] = max(plot.xlim[1], self.X[-1])
-		if len(self.Y) and not len(self.X): 
-			plot.ax.plot(self.Y, self.style)
-		else: plot.ax.plot(self.X, self.Y, self.style)
-
-	def convolve(self, other, **kwargs):
-		''' convolve with another curve '''
-		out = Curve(**kwargs)
-		out.X = np.copy(self.X[:(abs(len(self.X) - len(other.X)) + 1)])
-		out.Y = np.zeros(len(out.X))
-
-		for i, y_in in enumerate(self.Y[:len(out.Y)]):
-			for j, y_filt in enumerate(other.Y): 
-				try: out.Y[i+j] += y_in * y_filt
-				except IndexError: pass
-		out.X -= len(other.Y)//2
-		return out
+		if len(Y) and not len(X): 
+			plot.ax.plot(Y, style)
+		else: plot.ax.plot(X, Y, style)
 
 class Vspans(Entity):
-	''' things with a width and infinite height '''
 	def __init__(self, spans=[], style='orange', alpha=None):
-		''' constructor
-		spans: iterable of iterables. (default:[])
-		style: color specifier (default:'orange')
-		alpha: transparency/opacity (default:None)
-		'''
 		Entity.__init__(self)
 		self.spans = spans
 		self.style = style
 		self.alpha = alpha
 
 	def get_alpha(self):
-		''' get transparency '''
 		if type(self.style) is tuple and len(self.style) == 4: return self.style[3]
 		elif self.alpha is not None: return self.alpha
 		else: return 0.25
 
-	def set_color(self, style=None):
-		''' set color or choose a default '''
-		try: style = int(style)
-		except ValueError: pass
-		except TypeError: pass
-
-		if style is None: style = self.style
-
-		if type(style) is int: 
-			if (style % 3 == 0): self.style = 'orange'
-			if (style % 3 == 1): self.style = 'cyan'
-			if (style % 3 == 2): self.style = 'purple'
-		else: self.style = style
-
 	def draw(self, plot):
-		''' called when rendering plots '''
-		self.set_color()
 		for span in self.spans:
 			plot.ax.axvspan(span[0], span[1], facecolor=self.style, alpha=self.get_alpha())
 
 class Region(Vspans):
-	''' little boxes with widths, y-positions, and text but no height '''
-	def __init__(self, spans=[], yspan=[], label='', style='orange', alpha=None, pos='above', size=8, center=True):
+	def __init__(self, spans=[], yspan=[], label='', style='orange', alpha=None, pos='above', size=8):
 		Vspans.__init__(self, spans=spans, style=style, alpha=alpha)
 		self.label = label
 		self.yspan = yspan
 		self.pos = pos
 		self.size = size
-		self.center = center
 
 	def draw(self, plot):
-		''' called when rendering plots '''
-		self.set_color()
+		plot.ax.broken_barh(self.spans, self.yspan, facecolor=self.style, edgecolor=(1,1,1,0.5), zorder=2.0)
 
-		diffspans = [[span[0], span[1]-span[0]] for span in self.spans]
-
-		plot.ax.broken_barh(diffspans, self.yspan, facecolor=self.style, edgecolor=(1,1,1,0.5), zorder=2.0)
-
-		if self.center: xtext = (self.spans[0][0] + self.spans[-1][-1])/2
-		else: xtext = self.spans[0][0]
 		if self.pos == 'above':
-			xytext = [xtext, sum(self.yspan)+0.01]
+			xytext = [self.spans[0][0], sum(self.yspan)+0.01]
 		else:
-			xytext = [xtext, self.yspan[0]+0.01]
-		obj = plot.ax.annotate(self.label, xy=xytext, size=self.size)
-		if self.center: obj.set_horizontalalignment('center')
-		else: obj.set_horizontalalignment('left')
-
-class Wedge(Entity):
-	''' a vertical black bar and a little triangle pointing into the interval '''
-	def __init__(self, x, scale=1, y=None, style=None):
-		''' constructor
-		x: left edge
-		scale: scale of marker. Negative values define left-pointing markers (default:1)
-		y: y position
-		style: color specifier
-		'''
-		self.x, self.y = x, y
-		self.style = 'black' if style is None else style
-		self.scale = scale
-
-	def draw(self, plot):
-		''' called when rendering plots '''
-		if self.y > 0: ymin, ymax = 0.5, 1
-		elif self.y < 0: ymin, ymax = 0, 0.5
-		else: ymin, ymax = 0, 1
-		x = max(plot.xlim[0], min(plot.xlim[1], self.x))
-		plot.ax.axvline(x=x, color=self.style, ymin=ymin, ymax=ymax)
-
-		xlim = plot.ax.get_xlim()
-		if (xlim[1] - xlim[0]) > 600: k = 1
-		else: k = (xlim[1] - xlim[0]) / MISTAKEFUDGE
-
-		if self.scale:
-			x = x + abs(self.scale)**.5 * (self.scale)/abs(self.scale) * k
-			if self.y == 0: y = 2
-			else: y = self.y
-
-			size = abs(self.scale)
-
-			if self.scale < 0: marker = '<'
-			if self.scale > 0: marker = '>'
-
-			plot.ax.scatter([self.x], [self.y], marker=marker, color=self.style, s=25*abs(self.scale))
+			xytext = [self.spans[0][0], self.yspan[0]+0.01]
+		plot.ax.annotate(self.label, xy=xytext, size=self.size)
 
 class Wall(Vspans):
-	''' vertical black bars with little triangles pointing into the interval '''
 	def __init__(self, spans=[], y=None, ylim=[0,1], style='black', wedge=1, single=False):
-		''' constructor
-		spans: iterable of iterables defining intervals, e.g. [[20, 45], [60, 80]] (default:[])
-		y: position of triangle (default:None)
-		ylim: where the black bars are relative to the plot (default:[0, 1])
-		style: color specifier (default:'black')
-		wedge: scale of triangle. Negative values result in left-pointing triangles (default:1)
-		single: define single walls instead of pairs of walls. (default:False)
-		'''
 		Vspans.__init__(self, spans=spans, style=style)
 		self.y = y
 		self.ylim = ylim
@@ -429,21 +235,18 @@ class Wall(Vspans):
 		self.single = single
 
 	def get_y(self):
-		''' get y '''
 		if type(self.y) is None: return 2
 		else: return self.y
 
 	def get_ylim(self):
-		''' get ylim '''
 		if self.ylim is None: return [0, 1]
-		elif type(self.ylim) is int or type(self.ylim) is float:
+		elif type(self.ylim) is int:
 			if self.ylim > 0: return [0.5, 1]
 			elif self.ylim == 0: return [0, 1]
 			else: return [0, 0.5]
 		else: return self.ylim
 
 	def draw(self, plot):
-		''' called when rendering plots '''
 		ylim = self.get_ylim()
 		for span in self.spans:
 			for i, x in enumerate(span): 
@@ -453,40 +256,26 @@ class Wall(Vspans):
 						if self.wedge >= 0: marker = '>'
 						else: marker = '<'
 					else:
-						n = i
-						if self.wedge < 0: n += 1
-						if n % 2: marker = '<'
+						if i % 2: marker = '<'
 						else: marker = '>'
 
-					xlim = plot.ax.get_xlim()
 					#wx = x# + (abs(4*self.wedge)**0.5 * np.sign(0.5 - i % 2))
 					#FIXME: make the arrows aligned at any scale
-					xlim = plot.ax.get_xlim()
-					if (xlim[1] - xlim[0]) > 600: k = 1
-					else: k = (xlim[1] - xlim[0]) / MISTAKEFUDGE
+					wx = x - 2*(abs(self.wedge) * np.sign((i % 2) - 0.5)) - self.wedge*.5
 
-					wx = x - (2*(abs(self.wedge) * np.sign((i % 2) - 0.5)) - self.wedge*.5) * k
-
-					if self.y is None: wy = 2
-					else: wy = self.y
+					if self.y >= 0: wy = 2
+					else: wy = -2
 
 					plot.ax.scatter([wx], [wy], marker=marker, color='black', s=25*abs(self.wedge))
 
 class HMMTOP(Vspans):
-	''' Vspans but based on HMMTOP predictions '''
-	def __init__(self, gseq, style='orange', alpha=None, nohmmtop=False, load=None):
-		''' constructor
-		gseq: sequence, if any
-		style: color specifier (default:'orange')
-		alpha: transparency (default:None)
-		nohmmtop: don't run HMMTOP (default:False)
-		load: load an existing prediction
-		'''
-		Vspans.__init__(self, style=style, alpha=alpha)
+	def __init__(self, gseq, style=None, alpha=None, nohmmtop=False, load=None, styleindex=None):
+		self.style = style
+		self.styleindex = styleindex
+		self.get_tms_color()
+		Vspans.__init__(self, style=self.style, alpha=alpha)
 		self.spans = []
-		self.topout = ''
 
-		gseq = gseq.upper()
 		fasta = gseq
 		#no FASTA? no problem
 
@@ -504,8 +293,6 @@ class HMMTOP(Vspans):
 
 		if not indices: return
 
-		gseq = re.sub('\*', '-', gseq)
-		gseq = gseq.upper()
 		if gseq.startswith('>'): seq = gseq[gseq.find('\n')+1:]
 		else: seq = gseq
 
@@ -519,24 +306,19 @@ class HMMTOP(Vspans):
 		self.spans = [[indices[i], indices[i+1]] for i in range(0, len(indices), 2)]
 
 	def parse_hmmtop(self, topout):
-		''' parse topout into spans '''
-		self.topout = topout
 		if not topout: return []
 		indices = re.findall('(?: IN| OUT)((?:\s*(?:[0-9]+))+)', topout.strip())[0].strip().split()
 		indices = [int(i) for i in indices[1:]]
 		return indices
 
 	def add(self, *spans):
-		''' add TMSs '''
 		for span in spans: self.spans.append(span)
 
 	def replace(self, *spans):
-		''' replace TMSs '''
 		self.delete(*spans)
 		for newspan in spans: self.spans.append(newspan)
 
 	def delete(self, *spans):
-		''' delete TMSs '''
 		removeme = []
 		for j, oldspan in enumerate(self.spans):
 			for i, newspan in enumerate(spans):
@@ -547,7 +329,6 @@ class HMMTOP(Vspans):
 			self.spans.pop(j)
 
 	def extend(self, *spans):
-		''' extend TMSs '''
 		fuseme = {}
 		appendme = []
 		for i, newspan in enumerate(spans):
@@ -575,189 +356,32 @@ class HMMTOP(Vspans):
 			#if type(span) is int: self.spans.append(spans[span])
 			self.spans.append(span)
 
+	def get_tms_color(self):
+		if self.styleindex is None and self.style is None: self.style = 'orange'
+		elif self.style is None:
+			if (self.styleindex % 3) == 0: self.style = 'orange'
+			elif (self.styleindex % 3) == 1: self.style = 'cyan'
+			elif (self.styleindex % 3) == 2: self.style = 'purple'
+		#else: self.style = selfstyle
+
 class Point(Entity):
-	''' a thing with an x and a y position '''
 	def __init__(self, pos, marker='.', style='r', size=25):
-		''' constructor 
-		pos: iterable with x and y
-		marker: marker at point (default:'.')
-		style: color (default:'r')
-		size: scale of marker (default:25)
-		'''
 		self.x, self.y = pos
 		self.marker = marker
 		self.style = style
 		self.size = size
 
 	def draw(self, plot):
-		''' called when rendering plots '''
 		plot.ax.scatter([self.x], [self.y], marker=self.marker, color=self.style, s=self.size)
 		
-class Topoprob(Curve):
-	''' a curve where y is equal to the log probability that HMMTOP's predictions were accurate '''
-	def __init__(self, gseq, topout, style='y', offset=0, window=19, invert_orientation=False, smooth_loops=0):
-		''' constructor
-		gseq: sequence
-		topout: HMMTOP or HMMTOP-like output
-		style: color specifier (default:'y')
-		offset: shift curve this far (default:0)
-		window: window size to compute entropy over (default:19)
-		invert_orientation: use opposite probabilities for O/o/I/i
-		smooth_loops: 0: no (default); 1: assume all O are o and I are i; 2: assume all o are O and i are I
-		'''
-		Curve.__init__(self, style=style)
-		self.window = window
-		if not topout: 
-			self.X = []
-			self.Y = []
-			return
-
-		if gseq.startswith('>'):
-			gseq = gseq[gseq.find('\n')+1:]
-			gseq = re.sub('[^A-Z\-]', '', gseq)
-		gseq = gseq.upper()
-		gseq = re.sub('\*', '-', gseq)
-		seq = re.sub('[X\-]', '', gseq)
-		seq = re.sub('[^A-Z]', '', seq)
-		prev = 0
-
-		window = 5
-		aa2index = dict(zip('ACDEFGHIKLMNPQRSTVWY', range(20)))
-
-		if invert_orientation: state2index = dict(zip('IiOoH', range(5)))
-		else: state2index = dict(zip('OoIiH', range(5)))
-
-		probs = []
-
-		if 'HMMTOP_PSV' in os.environ and os.path.isfile(os.environ['HMMTOP_PSV']): fn = os.environ['HMMTOP_PSV']
-		elif 'hmmtop.psv' in os.listdir('.'): fn = './hmmtop.psv'
-		else: raise IOError('Could not find hmmtop.psv')
-
-		skip = 1
-		states = 5
-		freqs = []
-		with open(fn) as f:
-			for l in f: 
-				if skip: 
-					skip -= 1
-					continue
-				if states:
-					freqs.append([])
-					for i in range(0, len(l), 8): 
-						try: 
-							n = float(l[i:i+8])
-							freqs[-1].append(n)
-						except ValueError: pass
-					states -= 1
-		freqmatrix = np.array(freqs)
-		for i in range(freqmatrix.shape[1]): freqmatrix[:,i] /= sum(freqmatrix[:,i])
-		freqmatrix = np.log2(freqmatrix/0.2)
-
-		tags = {}
-		for resi, resn in enumerate(seq): tags[resi+1] = 'X'
-
-		essentials = re.findall('(?:OUT|IN)(?:(?:\s+[0-9]+)+)\s*$', topout)[0].strip().split()
-		if essentials[0] == 'OUT': tags[0] = 'O'
-		else: tags[0] = 'I'
-
-		spans = []
-		for i in range(int(essentials[1])):
-			span = int(essentials[2*i + 2]), int(essentials[2*i + 2 + 1])
-			spans.append(span)
-			for i in range(span[0], span[1]+1):
-				tags[i] = 'H'
-
-		flipped = False
-		state = 0 if tags[0] == 'O' else 'I'
-		for i in sorted(tags)[1:]:
-			if tags[i] == 'X':
-				if state == 0: tags[i] = 'O'
-				else: tags[i] = 'I'
-				flipped = False
-			elif tags[i] == 'H' and not flipped:
-				state = not state
-				flipped = True
-
-		if smooth_loops == 1:
-			for i in sorted(tags):
-				if tags[i] != 'H': tags[i] = tags[i].lower()
-		if smooth_loops == 2:
-			for i in sorted(tags):
-				if tags[i] != 'H': tags[i] = tags[i].upper()
-		else:
-			for span in spans:
-				for n in range(1, 15+1):
-					i = span[0] - n
-					if (2 <= i <= len(tags)) and (tags[i] != 'H'): 
-						tags[i] = tags[i].lower()
-					i = span[1] + n
-					if (2 <= i <= len(tags)) and (tags[i] != 'H'): 
-						tags[i] = tags[i].lower()
-
-		#s = ''
-		#for resi in sorted(tags): s += '{}'.format(tags[resi])
-		#print(s)
-
-		rawfreqs = []
-		for resi in sorted(tags): 
-			resn = seq[resi-1]
-			aa_i = aa2index[resn]
-			state = tags[resi]
-			s_i = state2index[state]
-			#print(resi, resn, state, freqmatrix[s_i,aa_i])
-			#Y.append(np.log2(freqmatrix[s_i,aa_i]/0.2))
-			rawfreqs.append(freqmatrix[s_i,aa_i])
-		avgfreqs = []
-		for i in range(0, len(rawfreqs) - window):
-			sample = rawfreqs[i:i+window]
-			avgfreqs.append(sum(sample)/len(sample))
-		#print(min(Y), max(Y), sum(Y)/len(Y), np.std(Y))
-
-		if len(gseq) == len(seq):
-			self.Y = np.array(avgfreqs)
-			self.X = np.arange(0, len(self.Y))+window//2+offset+1
-		else:
-			replace = re.finditer('(-+|X+)', gseq)
-			inserts = {}
-			for i in replace: inserts.setdefault(i.start(), i.end()-i.start())
-			first = False
-			newprobs = []
-
-			for x, p in enumerate(avgfreqs):
-				if x in inserts and not first:
-					first = True
-					newprobs += [np.nan for y in range(inserts[x])]
-					newcount = x + inserts[x]
-
-				elif not first: newprobs.append(p)
-
-				elif first and newcount in inserts:
-					newprobs += [np.nan for y in range(inserts[newcount])]
-					newcount += inserts[newcount]
-				else:
-					newprobs.append(p)
-					newcount += 1
-
-			self.Y = np.array(newprobs)
-			self.X = np.arange(offset+1, len(self.Y)+1)+window//2
-
 class Entropy(Curve):
-	''' a curve where y is equal to the average informational content in a window about each residue '''
 	def __init__(self, gseq, style='r', offset=0, window=19):
-		''' constructor
-		gseq: sequence
-		style: color specifier (default:'r')
-		offset: shift curve this far (default:0)
-		window: window size to compute entropy over (default:19)
-		'''
 		Curve.__init__(self, style=style)
 		self.window = window
 
 		if gseq.startswith('>'):
 			gseq = gseq[gseq.find('\n')+1:]
 			gseq = re.sub('[^A-Z\-]', '', gseq)
-		gseq = gseq.upper()
-		gseq = re.sub('\*', '-', gseq)
 		seq = re.sub('[X\-]', '', gseq)
 		seq = re.sub('[^A-Z]', '', seq)
 		prev = 0
@@ -775,34 +399,24 @@ class Entropy(Curve):
 
 		self.Y = np.array(entropies)
 		self.X = np.arange(0, len(self.Y))+window//2+offset+1
-
 	def draw(self, plot):
-		''' called when rendering plots '''
-		self.set_color()
 		plot.xlim[0] = min(plot.xlim[0], self.X[0] - self.window//2)
 		plot.xlim[1] = max(plot.xlim[1], self.X[-1] + self.window//2)
-		plot.ylim[0] = 2
-		plot.ylim[1] = np.log2(20)
+		#plot.ylim[0] = 2
+		#plot.ylim[1] = np.log2(20)
 
 		plot.axeslabels = ['Residue number', 'Entropy (bits)']
 		plot.ax.plot(self.X, self.Y, color=self.style, linewidth=1)
 
 class Psipred(Curve):
-	''' a curve where y is equal to the helix probability (red), sheet probability (yellow), and coil probability (green) as given by PSIPRED '''
 	def __init__(self, pred, style=None, offset=0, window=1):
-		''' constructor
-		pred: PSIPREd prediction as a str
-		style: color specifier (default:None)
-		offset: shift x-wise (default:0)
-		window: compute moving averages over this many residues (default:1)
-		'''
 		Curve.__init__(self, style=style)
 		self.window = window
 
+		self.seq = ''
 		self.parse(pred)
 
 	def parse(self, pred):
-		''' parse predictions '''
 		x = []
 		ycoil = []
 		yhelx = []
@@ -816,6 +430,7 @@ class Psipred(Curve):
 			yhelx.append(float(sl[4]))
 			ystrn.append(float(sl[5]))
 			x.append(int(sl[0]))
+			self.seq += sl[1]
 
 		if self.window == 1:
 			self.X = np.array(x)
@@ -829,11 +444,10 @@ class Psipred(Curve):
 			self.Ystrn = np.array([np.mean(ystrn[i:i+self.window]) for i, span in enumerate(ystrn[:-self.window])])
 
 	def draw(self, plot):
-		''' called when rendering plots '''
 		plot.xlim[0] = min(plot.xlim[0], self.X[0] - self.window//2)
 		plot.xlim[1] = max(plot.xlim[1], self.X[-1] + self.window//2)
-		plot.ylim[0] = 0
-		plot.ylim[1] = 1.0
+		#plot.ylim[0] = 0
+		#plot.ylim[1] = 1.0
 		plot.yticks = 0.2
 
 		plot.axeslabels = ['Residue number', 'Confidence']
@@ -841,15 +455,8 @@ class Psipred(Curve):
 		plot.ax.plot(self.X, self.Yhelx, color='r', linewidth=2)
 		plot.ax.plot(self.X, self.Ystrn, color='y', linewidth=2)
 
-class Hydropathy(Curve):
-	''' a curve where y is the moving average of the hydropathy '''
-	def __init__(self, gseq, style='r', offset=0, window=19, index=HYDROPATHY):
-		''' constructor
-		gseq: sequence
-		style: color specifier (default:'r')
-		offset: shift x-wise by this amount (default:0)
-		window: window size (default:19)
-		'''
+class Amphipathicity(Curve):
+	def __init__(self, gseq, style='p', offset=0, window=19):
 		Curve.__init__(self, style=style)
 		self.window = window
 		#Copied with barely any modification from gblast3.py
@@ -858,20 +465,41 @@ class Hydropathy(Curve):
 		if gseq.startswith('>'):
 			gseq = gseq[gseq.find('\n')+1:]
 			gseq = re.sub('[^A-Z\-]', '', gseq)
-		gseq = gseq.upper()
-		gseq = re.sub('\*', '-', gseq)
-		self.gseq = gseq
 		seq = re.sub('[X\-]', '', gseq)
 		seq = re.sub('[^A-Z]', '', seq)
-		self.seq = seq
 		prev = 0
+		index = {'G':(-0.400,0.48), \
+             'I':(4.500,1.38), \
+             'S':(-0.800,-0.18), \
+			 'Q':(-3.500,-0.85), \
+             'E':(-3.500,-0.74), \
+             'A':(1.800,0.62), \
+             'M':(1.900,0.64), \
+             'T':(-0.700,-0.05), \
+             'Y':(-1.300,0.26), \
+             'H':(-3.200,-0.4), \
+             'V':(4.200,1.08), \
+             'F':(2.800,1.19), \
+             'C':(2.500,0.29), \
+             'W':(-0.900,0.81), \
+             'K':(-3.900,-1.5), \
+             'L':(3.800,1.06), \
+             'P':(-1.600,0.12), \
+             'N':(-3.500,-0.78), \
+             'D':(-3.500,-0.90), \
+             'R':(-4.500,-2.53), \
+             'U':(0,0), \
+             'B':(-3.500,-0.84), \
+             'J':(-3.500,-0.80), \
+             'Z':(4.150,1.22) \
+            }
 
 		midpt = (window+1)//2
 		length = len(seq)
 		hydro = []
 		for i in range(length-window+1):
 			total = 0
-			for j in range(window): total += index[seq[i+j]]
+			for j in range(window): total += index[seq[i+j]][1]
 			total /= window
 			hydro.append(total)
 
@@ -905,29 +533,98 @@ class Hydropathy(Curve):
 			self.X = np.arange(offset+1, len(self.Y)+1)+window//2
 
 	def draw(self, plot):
-		''' called when rendering plots '''
-		self.set_color()
 		plot.xlim[0] = min(plot.xlim[0], self.X[0] - self.window//2)
 		plot.xlim[1] = max(plot.xlim[1], self.X[-1] + self.window//2)
 
 		plot.axeslabels = ['Residue number', 'Hydropathy (kcal/mol)']
 		plot.ax.plot(self.X, self.Y, color=self.style, linewidth=1)
 
+class Hydropathy(Curve):
+	def __init__(self, gseq, style='r', offset=0, window=19):
+		Curve.__init__(self, style=style)
+		self.window = window
+		#Copied with barely any modification from gblast3.py
+
+ 		#sanitize the sequence, which may be a FASTA
+		if gseq.startswith('>'):
+			gseq = gseq[gseq.find('\n')+1:]
+			gseq = re.sub('[^A-Z\-]', '', gseq)
+		seq = re.sub('[X\-]', '', gseq)
+		seq = re.sub('[^A-Z]', '', seq)
+		prev = 0
+		index = {'G':(-0.400,0.48), \
+             'I':(4.500,1.38), \
+             'S':(-0.800,-0.18), \
+			 'Q':(-3.500,-0.85), \
+             'E':(-3.500,-0.74), \
+             'A':(1.800,0.62), \
+             'M':(1.900,0.64), \
+             'T':(-0.700,-0.05), \
+             'Y':(-1.300,0.26), \
+             'H':(-3.200,-0.4), \
+             'V':(4.200,1.08), \
+             'F':(2.800,1.19), \
+             'C':(2.500,0.29), \
+             'W':(-0.900,0.81), \
+             'K':(-3.900,-1.5), \
+             'L':(3.800,1.06), \
+             'P':(-1.600,0.12), \
+             'N':(-3.500,-0.78), \
+             'D':(-3.500,-0.90), \
+             'R':(-4.500,-2.53), \
+             'U':(0,0), \
+             'B':(-3.500,-0.84), \
+             'J':(-3.500,-0.80), \
+             'Z':(4.150,1.22) \
+            }
+
+		midpt = (window+1)//2
+		length = len(seq)
+		hydro = []
+		for i in range(length-window+1):
+			total = 0
+			for j in range(window): total += index[seq[i+j]][0]
+			total /= window
+			hydro.append(total)
+
+		if len(seq) == len(gseq): 
+			self.Y = np.array(hydro)
+			self.X = np.arange(0, len(self.Y))+window//2+offset+1
+
+		else:
+			replace = re.finditer('(-+|X+)', gseq)
+			inserts = {}
+			for i in replace: inserts.setdefault(i.start(), i.end()-i.start())
+			first = False
+			newhydro = []
+
+			for x, h in enumerate(hydro):
+				if x in inserts and not first:
+					first = True
+					newhydro += [np.nan for y in range(inserts[x])]
+					newcount = x + inserts[x]
+
+				elif not first: newhydro.append(h)
+
+				elif first and newcount in inserts:
+					newhydro += [np.nan for y in range(inserts[newcount])]
+					newcount += inserts[newcount]
+				else:
+					newhydro.append(h)
+					newcount += 1
+
+			self.Y = np.array(newhydro)
+			self.X = np.arange(offset+1, len(self.Y)+1)+window//2
+
+	def draw(self, plot):
+		plot.xlim[0] = min(plot.xlim[0], self.X[0] - self.window//2)
+		plot.xlim[1] = max(plot.xlim[1], self.X[-1] + self.window//2)
+
+		plot.axeslabels = ['Residue number', 'Hydropathy (kcal/mol)']
+		plot.ax.plot(self.X, self.Y, color=self.style, linewidth=1)
 
 class What(Entity):
-	''' a container with both a curve and HMMTOP vspans '''
-	def __init__(self, seq, style=0, tmscolor=None, linecolor=None, color=None, nohmmtop=False, mode='hydropathy', window=None, predfile=None, topo_prob=False):
-		''' constructor
-		seq: sequence or input data
-		style: color specifier (default:0)
-		tmscolor: vspan color specifier (default:None)
-		linecolor: curve color specifier (default:None)
-		color: color specifier for everything (default:None)
-		nohmmtop: do not run HMMTOP (default:False)
-		mode: what kind of plot to generate ([hydropathy], entropy, psipred)
-		window: window size for computing moving averages (default:None)
-		predfile: prediction file to load for PSIPRED (default:None)
-		'''
+	def __init__(self, seq, style=0, tmscolor=None, linecolor=None, color=None, nohmmtop=False, mode='hydropathy', window=None, predfile=None, hmmtop=None, amphipathicity=True):
 		Entity.__init__(self)
 		if mode == 'psipred': self.seq = self.get_psipred_seq(seq)
 		else: self.seq = seq
@@ -955,13 +652,15 @@ class What(Entity):
 			if window is None: self.window = 19
 			else: self.window = window
 			self.entities.append(Hydropathy(seq, style=self.get_curve_color(), window=self.window))
-		self.entities.append(HMMTOP(self.seq, style=self.get_tms_color(), nohmmtop=nohmmtop))
-		if topo_prob: self.entities.append(Topoprob(seq, topout=self.entities[-1].topout, window=self.window))
+			if amphipathicity:
+				self.entities.append(Amphipathicity(seq, style='p', window=self.window))
+		if hmmtop is None:
+			self.entities.append(HMMTOP(self.seq, style=self.get_tms_color(), nohmmtop=nohmmtop))
+		else: self.entities.append(hmmtop)
 
 	def get_psipred_seq(self, seq):
-		''' obtain sequence given a prediction file '''
 		s = ''
-		for l in seq.split('\n'): 
+	 	for l in seq.split('\n'): 
 			if not l.strip(): continue
 			elif l.lstrip().startswith('#'): continue
 			elif l.lstrip().startswith('>'): s += '\n'+ l.strip() + '\n'
@@ -969,7 +668,6 @@ class What(Entity):
 		return s.strip()
 
 	def get_title(self, showlength=True):
-		''' generate a title given attributes '''
 		if self.seq.startswith('>'): 
 			s = self.seq[1:self.seq.find('\n')]
 			if showlength: 
@@ -982,7 +680,6 @@ class What(Entity):
 			else: return '{}...{} ({}aa)'.format(self.seq[:8], self.seq[-3:], len(self.seq))
 
 	def get_curve_color(self):
-		''' generate a curve color '''
 		if self.linecolor is None:
 			if (self.style % 3) == 0: return 'red'
 			elif (self.style % 3) == 1: return 'blue'
@@ -992,7 +689,6 @@ class What(Entity):
 		else: return self.linecolor 
 
 	def get_tms_color(self):
-		''' generate a vspan color '''
 		if self.tmscolor is None:
 			if (self.style % 3) == 0: return 'orange'
 			elif (self.style % 3) == 1: return 'cyan'
@@ -1002,17 +698,13 @@ class What(Entity):
 		else: return self.tmscolor
 
 	def draw(self, plot):
-		''' called when rendering plots '''
 		#for e in self.entities: e.draw(notitle=True)
 		for e in self.entities: e.draw(plot)
 
 		#XXX maybe this goes better under Hydropathy or something
 		plot.titles.append(self.get_title())
 
-	def __iter__(self): return iter(self.entities)
-
 def split_fasta(fastastr):
-	''' split multirecord FASTAs '''
 	sequences = []
 	for l in fastastr.split('\n'):
 		if l.startswith('>'): sequences.append(l)
@@ -1023,9 +715,6 @@ def split_fasta(fastastr):
 	return sequences
 
 def parse_manual_tms(top, s):
-	''' under construction
-
-	will allow TMS specification using a nice mini-language '''
 	tmss = []
 
 	indices = []
@@ -1041,15 +730,8 @@ def parse_manual_tms(top, s):
 	for token in s.split():
 		if isverb(token): pass
 		if isint(token): indices.append(int(token))
-	return indices
 
 def find(entitylist, target, index=None):
-	''' look for a specific kind of entity in a list of entities
-
-	entitylist: list of entities
-	target: type of entity
-	index: does something (default:None)
-	'''
 	if index is None: anymode = 1
 	else:
 		anymode = 0
@@ -1066,56 +748,14 @@ def find(entitylist, target, index=None):
 
 #def main(infiles, mode='hydropathy', walls=None, ):
 #def what(sequences, labels=None, imgfmt='png', directory=None, filename=None, title=False, dpi=80, hide=True, viewer=None, bars=[], color='auto', offset=0, statistics=False, overwrite=False, manual_tms=None, wedges=[], ywedge=2, legend=False, window=19, silent=False, axisfont=None, tickfont=None, xticks=None, mode='hydropathy', width=None, height=None):
-def what(*args, **kwargs): main(*args, **kwargs)
 def main(infiles, **kwargs):
-	''' generate a QUOD figure from start to finish
-	will attempt to generate multi-subplot figures if multiple modes are given
-	infiles: iterable of filenames
-
-	keyword arguments:
-		add_marker: add a point marker at these points
-		add_region: add a region marker at these spans
-		add_tms: add a TMS marker at these spans
-		axis_font: font size for axis labels
-		bars: add vertical bars at these x-values
-		color: color everything this
-		delete_tms: delete TMSs intersecting these spans
-		entities: preload in this iterable of Entities
-		entropy: plot entropy too
-		extend_tms: extend TMSs intersecting these spans
-		force_seq: force inputs to be interpreted as sequences
-		load_tms: load TMS definitions from a file
-		manual_tms: not implemented
-		no_tms: don't run HMMTOP for these sequence IDs
-		outdir: where to output figure images
-		outfile: what to name figure images
-		psipred: plot PSIPRED predictions too
-		replace_tms: replace TMSs intersecting these spans
-		tick_font: font size for tick labels
-		title: manually set title
-		wall: vertical black bars with wedges
-		walls: vertical black bars with inward-pointing wedges
-		window: window width
-		x_offset: shift x-wise by this amount
-		xticks: x-tick interval
-	'''
-
-	#grep -o 'kwargs\[.*:' quod.py | sed "s/kwargs\[\'//g;s/']//g;s/is not None//g;s/mode == '//g;s/'//g;s/ //g" | sort | uniq | pbcopy
-	plot = Plot()
-
-	if 'width' in kwargs: width = kwargs['width']
-	else: width = None
-	if 'height' in kwargs: height = kwargs['height']
-	else: height = None
-
-	plot.width = width
-	plot.height = height
+	#plot = Plot()
+	entities = {'hydropathy':[], 'entropy':[], 'psipred':[]}
 
 	if 'color' in kwargs and kwargs['color'] is not None: color = kwargs['color']
 	else: color = 'auto'
 
 	no_tms = []
-	loadme = {}
 	if 'load_tms' in kwargs and kwargs['load_tms']:
 		n_id = 0
 		n_loads = 0
@@ -1135,24 +775,41 @@ def main(infiles, **kwargs):
 					elif (n_loads % 3) == 2: style = 'purple'
 					else: style = 'orange'
 				x = HMMTOP(gseq='', nohmmtop=True, load=token, style=style)
-				loadme[n_id] = x
-				plot.add(x)
+				entities['hydropathy'].append(x)
 				n_loads += 1
 		if n_id == 0: no_tms.append(0)
 
 	#if 'entropy' in kwargs and kwargs['entropy']: entropy = True
 	#else: entropy = False
+
+	modes = set()
 	if 'mode' in kwargs:
-		if kwargs['mode'] == 'entropy': mode = 'entropy'
-		elif kwargs['mode'] == 'psipred': mode = 'psipred'
-		else: mode = 'hydropathy'
-	else: mode = 'hydropathy'
+		for mode in kwargs['mode']:
+			if mode == 'entropy': 
+				modes.add('entropy')
+				modes.add('hydropathy')
+			elif mode == 'psipred': modes.add('psipred')
+			else: modes.add('hydropathy')
+	else: modes.add('hydropathy')
+	for fn, mode in infiles:
+		if mode == 'psipred': modes.add('psipred')
+
+	fig = Quodfig(modes=sorted(modes))
+
+	if 'width' in kwargs: width = kwargs['width']
+	if 'height' in kwargs: height = kwargs['height']
+
+	fig.width = width
+	fig.height = height
+
+	plots = {}
+	for plot in fig.plots: plots[plot.mode] = plot
 
 	if 'window' in kwargs and kwargs['window'] is not None: window = kwargs['window']
 	else: window = 19
 
-	if 'topo_prob' in kwargs and kwargs['topo_prob']: topo_prob = True
-	else: topo_prob = False
+	if 'psipred_window' in kwargs and kwargs['psipred_window'] is not None: psipred_window = kwargs['psipred_window']
+	else: psipred_window = 1
 
 	if 'no_tms' in kwargs and kwargs['no_tms']:
 		for token in kwargs['no_tms']:
@@ -1162,34 +819,71 @@ def main(infiles, **kwargs):
 			no_tms.append(parse_id(token))
 				
 	n = 0
+	redundant = []
+	hmmtops = {}
 	if 'force_seq' in kwargs and kwargs['force_seq']: 
-		for seq in infiles: 
+		for seq, mode in infiles: 
 			if n in no_tms: nohmmtop = 1
-			else: nohmmtop = 0
-			whatkwargs = {'nohmmtop':nohmmtop, 'window':window, 'topo_prob':topo_prob}
+			else: 
+				nohmmtop = 0
+				try: hmmtop = hmmtops[hash(seq)]
+				except KeyError: 
+					hmmtop = HMMTOP(seq, styleindex=n, nohmmtop=nohmmtop)
+					hmmtops[hash(seq)] = hmmtop
+			whatkwargs = {'nohmmtop':nohmmtop, 'window':window}
 			if color == 'auto': whatkwargs['style'] = n
 			else: whatkwargs['color'] = color
 			if mode == 'entropy': whatkwargs['mode'] = 'entropy'
-			elif mode == 'psipred': whatkwargs['mode'] = 'psipred'
-			plot.add(What(seq, **whatkwargs))
-
-			if n in loadme: plot[-1].add(loadme[n])
-			n += 1
+			elif mode == 'psipred': 
+				whatkwargs['mode'] = 'psipred'
+				whatkwargs['window'] = psipred_window
+			entities['hydropathy'].append(What(seq, **whatkwargs))
+			h = hash(seq)
+			if h not in redundant: 
+				n += 1
+				redundant.append(h)
 	else:
-		for fn in infiles:
+		for fn, mode in infiles:
 			with open(fn) as f:
-				for seq in split_fasta(f.read().decode('utf-8')):
-					if n in no_tms: nohmmtop = 1
-					else: nohmmtop = 0
-					whatkwargs = {'nohmmtop':nohmmtop, 'window':window, 'topo_prob':topo_prob}
+				if mode == 'psipred':
+					seq = f.read().decode('utf-8')
+					p = Psipred(seq)
+					try: hmmtop = hmmtops[hash(striph(p.seq))]
+					except KeyError: 
+						hmmtop = HMMTOP(p.seq, styleindex=n, nohmmtop=nohmmtop)
+						hmmtops[hash(striph(p.seq))] = hmmtop
+
+					whatkwargs = {'nohmmtop':nohmmtop, 'window':window, 'hmmtop':hmmtop}
 					if color == 'auto': whatkwargs['style'] = n
 					else: whatkwargs['color'] = color
-					if mode == 'entropy': whatkwargs['mode'] = 'entropy'
-					elif mode == 'psipred': whatkwargs['mode'] = 'psipred'
-					plot.add(What(seq, **whatkwargs))
+					whatkwargs['mode'] = 'psipred'
+					whatkwargs['window'] = psipred_window
+					entities['psipred'].append(What(seq, **whatkwargs))
+					h = hash(seq)
+					if h not in redundant:
+						n += 1
+						redundant.append(h)
+				else:
+					for seq in split_fasta(f.read().decode('utf-8')):
+						if n in no_tms: nohmmtop = 1
+						else: 
+							nohmmtop = 0
+							try: hmmtop = hmmtops[hash(striph(seq))]
+							except KeyError: 
+								hmmtop = HMMTOP(seq, styleindex=n, nohmmtop=nohmmtop)
+								hmmtops[hash(striph(seq))] = hmmtop
 
-					if n in loadme: plot[-1].add(loadme[n])
-					n += 1
+						whatkwargs = {'nohmmtop':nohmmtop, 'window':window, 'hmmtop':hmmtop}
+						if color == 'auto': whatkwargs['style'] = n
+						else: whatkwargs['color'] = color
+						if mode == 'entropy': 
+							whatkwargs['mode'] = 'entropy'
+							entities['entropy'].append(What(seq, **whatkwargs))
+						else: entities['hydropathy'].append(What(seq, **whatkwargs))
+						h = hash(seq)
+						if h not in redundant: 
+							n += 1
+							redundant.append(h)
 
 	if 'add_tms' in kwargs and kwargs['add_tms']:
 		for tms in kwargs['add_tms']:
@@ -1200,40 +894,8 @@ def main(infiles, **kwargs):
 				if len(span.split('-')) == 1: indices = [int(span)]*2
 				else: indices = [int(x) for x in span.split('-')]
 				spans = [indices[i:i+2] for i in range(0, len(indices), 2)]
-				plot.add(HMMTOP('', style=color, alpha=None, nohmmtop=True))
-				plot[-1].spans = spans
-
-	if 'mark_residue' in kwargs and kwargs['mark_residue']:
-		for marker in kwargs['mark_residue']:
-			pos = []
-			color = None
-			index = 0
-			size = 25
-
-			motifs = []
-			for i, token in enumerate(marker.split(':')):
-				if isid(token) and not i: index = parse_id(token)
-				elif not motifs: motifs += token.split(',')
-				else: color = token
-
-			for e in find(plot, What, index):
-				for ee in find(e, Hydropathy):
-					if color is None: color = ee.style
-					pos = []
-					for m in motifs:
-						p = m.replace('X', '.').replace('-', '.?')
-						for hit in re.finditer(p, ee.gseq): 
-							#pos.append(hit.start())
-							pos.append((hit.start() + hit.end())//2)
-					done = []
-					for pair in zip(ee.X, ee.Y):
-						for x in pos:
-							if x == pair[0]:
-								if np.isnan(pair[1]): plot.add(Point([x,0], marker='o', style=color, size=size))
-								else: plot.add(Point(pair, marker='o', style=color, size=size))
-								done.append(x)
-					for x in pos:
-						if x not in done: plot.add(Point([x,0], marker='o', style=color, size=size))
+				entities['hydropathy'].append(HMMTOP('', style=color, alpha=None, nohmmtop=True))
+				entities['hydropathy'][-1].spans = spans
 
 	if 'add_marker' in kwargs and kwargs['add_marker']:
 		for marker in kwargs['add_marker']:
@@ -1251,19 +913,19 @@ def main(infiles, **kwargs):
 				else: color = token
 
 			done = []
-			for e in find(plot, What, index):
-				for ee in find(e, Hydropathy):
+			for e in find(entities['hydropathy'], What, index):
+				for ee in find(e.entities, Hydropathy):
 					if color is None: color = ee.style
 
 					for pair in zip(ee.X, ee.Y):
 						for x in pos:
 							if x == pair[0]:
-								if np.isnan(pair[1]): plot.add(Point([x,0], marker='o', style=color, size=size))
-								else: plot.add(Point(pair, marker='o', style=color, size=size))
+								if np.isnan(pair[1]): entities['hydropathy'].append(Point([x,0], marker='o', style=color, size=size))
+								else: entities['hydropathy'].append(Point(pair, marker='o', style=color, size=size))
 								done.append(x)
 					for x in pos:
 						if x not in done:
-							plot.add(Point([x,0], marker='o', style=color, size=size))
+							entities['hydropathy'].append(Point([x,0], marker='o', style=color, size=size))
 
 	if 'extend_tms' in kwargs and kwargs['extend_tms']:
 		for tms in kwargs['extend_tms']:
@@ -1278,7 +940,7 @@ def main(infiles, **kwargs):
 				elif not spans and isspans(token): spans = parse_spans(token)
 				else: color = token
 
-			for e in find(plot, What, index):
+			for e in find(entities['hydropathy'], What, index):
 				for ee in e.entities:
 					if type(ee) is HMMTOP:
 						if color is None or color == ee.style: 
@@ -1291,8 +953,8 @@ def main(infiles, **kwargs):
 								for j, newspan in enumerate(spans):
 									if overlap(oldspan, newspan): ee.delete(newspan)
 							#integration
-							plot.add(HMMTOP('', style=color))
-							plot[-1].spans = spans
+							entities['hydropathy'].append(HMMTOP('', style=color))
+							entities['hydropathy'][-1].spans = spans
 
 	#if an existing TMS on sequence +x overlaps with a TMS defined by delete_tms, erase it
 	if 'delete_tms' in kwargs and kwargs['delete_tms']:
@@ -1307,7 +969,7 @@ def main(infiles, **kwargs):
 				elif not spans and isspans(token): spans = parse_spans(token)
 				else: color = token
 
-			for e in find(plot, What, index):
+			for e in find(entities['hydropathy'], What, index):
 				for ee in find(e.entities, HMMTOP): ee.delete(*spans)
 
 	if 'replace_tms' in kwargs and kwargs['replace_tms']:
@@ -1322,13 +984,13 @@ def main(infiles, **kwargs):
 				elif not spans and isspans(token): spans = parse_spans(token)
 				else: color = token
 
-			for e in find(plot, What, index):
+			for e in find(entities['hydropathy'], What, index):
 				for ee in find(e.entities, HMMTOP):
 					if color is None or color == ee.style: ee.replace(*spans)
 					else:
 						ee.delete(*spans)
-						plot.add(HMMTOP('', style=color))
-						plot[-1].spans = spans
+						entities['hydropathy'].append(HMMTOP('', style=color))
+						entities['hydropathy'][-1].spans = spans
 
 	if 'add_region' in kwargs and kwargs['add_region']:
 		for region in kwargs['add_region']:
@@ -1364,20 +1026,22 @@ def main(infiles, **kwargs):
 				elif color is None: color = token
 				elif isint(token) and size is None: size = int(token)
 
-			for i in range(len(spans)): spans[i][1] = spans[i][1]# - spans[i][0]
+			for i in range(len(spans)): spans[i][1] = spans[i][1] - spans[i][0]
 
 			if y is None: y = -2
 			if label is None: label = 'untitled region'
 			if size is None: size = 8
 
-			plot.add(Region(spans, [y-0.15, 0.15], label, style=color, size=size))
+			entities.append(Region(spans, [y-0.15, 0.15], label, style=color, size=size))
 			#for token in re.split(r':', region): print(token)
 
-	if 'xticks' in kwargs and kwargs['xticks'] is not None: plot.xticks = kwargs['xticks']
-	else: plot.xticks = None
+	if 'xticks' in kwargs and kwargs['xticks'] is not None: 
+		for mode in plots: plots[mode].xticks = kwargs['xticks']
+	else: 
+		for mode in plots: plots[mode].xticks = None
 
 	if 'bars' in kwargs and kwargs['bars'] is not None: 
-		[plot.add(wall) for wall in parse_walls(kwargs['bars'], wedge=0)]
+		[entities.append(wall) for wall in parse_walls(kwargs['bars'], wedge=0)]
 
 	if 'dpi' in kwargs: dpi = kwargs['dpi']
 	else: dpi = 80
@@ -1386,10 +1050,10 @@ def main(infiles, **kwargs):
 	else: imgfmt = 'png'
 
 	if 'walls' in kwargs and kwargs['walls'] is not None: 
-		[plot.add(wall) for wall in parse_walls(kwargs['walls'])]
+		[entities.append(wall) for wall in parse_walls(kwargs['walls'])]
 
 	if 'wall' in kwargs and kwargs['wall'] is not None:
-		[plot.add(wall) for wall in parse_walls(kwargs['wall'], single=1)]
+		[entities.append(wall) for wall in parse_walls(kwargs['wall'], single=1)]
 
 	if 'outdir' in kwargs and kwargs['outdir']: prefix = kwargs['outdir']
 	else: prefix = ''
@@ -1400,7 +1064,7 @@ def main(infiles, **kwargs):
 	else: outfile = None
 
 	if 'quiet' in kwargs: quiet = kwargs['quiet']
-	else: quiet = True
+	else: quiet = None
 
 	if 'viewer' in kwargs: viewer = kwargs['viewer']
 	else: viewer = None
@@ -1410,37 +1074,41 @@ def main(infiles, **kwargs):
 
 	if 'x_offset' in kwargs and kwargs['x_offset'] is not None: x_offset = kwargs['x_offset']
 	else: x_offset = 0
-	plot.x_offset = x_offset
+	for mode in plots: plots[mode].x_offset = x_offset
 
 	if 'manual_tms' in kwargs and kwargs['manual_tms'] is not None: 
 		pass #entities += parse_manual_tms(kwargs['manual_tms'])
 
-	if 'entities' in kwargs and kwargs['entities'] is not None: 
-		for e in kwargs['entities']: plot.add(e)
+	for i, mode in enumerate(entities):
+		for e in entities[mode]: 
+			e.draw(plots[mode])
+		try: 
+			maxl = plots[mode].render(notitle=0)
+			if maxl > fig.maxl: fig.maxl = maxl
+		except KeyError: pass
 
-	if 'grid' in kwargs and kwargs['grid']: plot.grid = True
+	for mode in plots:
+		plot = plots[mode]
+		if 'axis_font' in kwargs and kwargs['axis_font'] is not None:
+			plot.ax.set_xlabel(plot.ax.get_xlabel(), fontsize=kwargs['axis_font'])
+			plot.ax.set_ylabel(plot.ax.get_ylabel(), fontsize=kwargs['axis_font'])
 
-	plot.render()
-
-	if 'axis_font' in kwargs and kwargs['axis_font'] is not None:
-		plot.ax.set_xlabel(plot.ax.get_xlabel(), fontsize=kwargs['axis_font'])
-		plot.ax.set_ylabel(plot.ax.get_ylabel(), fontsize=kwargs['axis_font'])
-
-	if 'tick_font' in kwargs and kwargs['tick_font'] is not None:
-		plot.ax.tick_params(labelsize=kwargs['tick_font'])
+		if 'tick_font' in kwargs and kwargs['tick_font'] is not None:
+			plot.ax.tick_params(labelsize=kwargs['tick_font'])
 
 	if title is not None: plot.ax.set_title(title)
-	if outfile is None: outfile = sanitize(plot.ax.get_title())
+	if outfile is None: 
+		if prefix: outfile = prefix + '/' + sanitize(plot.ax.get_title())
+		else: outfile = sanitize(plot.ax.get_title())
 
-	if outfile.lower().endswith('.{}'.format(imgfmt.lower())): pass
-	elif len(os.path.splitext(outfile)) == 1: outfile += '.{}'.format(imgfmt)
+	if len(os.path.splitext(outfile)) == 1: outfile += '.{}'.format(imgfmt)
 	elif len(os.path.splitext(outfile)[-1]) not in [3, 4]: 
 		outfile += '.{}'.format(imgfmt)
 	elif os.path.splitext(outfile)[-1].lower() != imgfmt.lower():
 		outfile += '.{}'.format(imgfmt)
 
-	if prefix not in outfile: outfile = '{}/{}'.format(prefix, outfile)
-	plot.save(outfile, dpi=dpi, format=imgfmt)
+	fig.render()
+	fig.save(outfile, dpi=dpi, format=imgfmt)
 
 	if not quiet:
 		if viewer is None:
@@ -1451,37 +1119,19 @@ def main(infiles, **kwargs):
 		
 
 def parse_walls(strlist, wedge=1, single=False):
-	'''
-	turns a list of wall specifications into Wall() objects
-
-	strlist: a list of string with syntax "spanslike1,spanslike2,...:float:float" where spanslike is a comma-separated list of ranges, the first float defines the y position of the marker, and the second float defines the size/direction of the marker(s)
-	wedge: another way to set marker size/direction
-	single: produce single walls instead of double walls
-	'''
+	#turns a list of wall specifications into Wall() objects
 	if not strlist: return None
 	out = []
 	for wall in strlist:
 		if type(wall) is str:
-			tokens = wall.split(':')
-			if len(tokens) == 1: tokens.append(None)
-			if len(tokens) == 2: tokens.append(None)
+			coords = [int(x) for x in wall.split(',')]
+			if len(coords) == 1: coords.append(5)
+			if len(coords) == 2: coords.append(None)
 
-			if tokens[1] is None: y = None
-			elif len(tokens[1]) == 0: y = None
-			else: y = float(tokens[1])
-
-			if y is None or y == 0: ylim = [0, 1]
-			elif y > 0: ylim = [0.5, 1]
-			else: ylim = [0, 0.5]
-
-			wedge = wedge if tokens[2] is None else float(tokens[2])
-
-			spans = parse_spans(tokens[0])
-
-			out.append(Wall(spans, y=y, ylim=ylim, wedge=wedge, single=single))
+			span = [coords[0], coords[0]+coords[1]]
+			out.append(Wall([span], y=coords[2], ylim=coords[2], wedge=wedge, single=single))
 		elif type(wall) is int:
 			out.append(Wall([[wall, wall]], wedge=wedge, single=single))
-		else: raise ValueError('Unsupported strlist format')
 	return out
 
 if __name__ == '__main__': 
@@ -1506,14 +1156,13 @@ if __name__ == '__main__':
 	parser.add_argument('-sp', action='store_true', help='Force inputs to be interpreted as PSIPRED predictions')
 	parser.add_argument('-t', metavar='format', default='png', help='Format of graph (\033[1mpng\033[0m, eps, jpeg, jpg, pdf, pgf, ps, raw, rgba, svg, svgz, tif, tiff')
 	parser.add_argument('-v', action='store_true', help='Verbose output. Enables warnings and generally makes things messier')
-	parser.add_argument('-w', '--walls', metavar='x0-x(:scale(:y))', nargs='+', help='Draws bounds around sequences and such, e.g. "20-45,60-80:0.5:2" draws 2x-scaled markers around the interval [20, 45] and [60, 80] at y=0.5 and "36-60" draws default-scaled (1x) markers around the interval [36, 60] at the default y (y=2)')
-	parser.add_argument('-W', '--wall', metavar='x(:scale(:y))', nargs='+', help='Draws a single wall for each specification, allowing left-pointing intervals with negative scale values. See -w/--walls for more information on syntax.')
+	parser.add_argument('-w', '--walls', metavar='x(,dx(,y))', nargs='+', help='Draws bounds around sequences and such')
+	parser.add_argument('-W', '--wall', metavar='x(,dx(,y))', nargs='+', help='Draws bounds around sequences and such')
 	parser.add_argument('--axis-font', metavar='size', type=int, help='Axis label size (pt)')
-	parser.add_argument('--grid', action='store_true', help='Show grid (default:off)')
 	parser.add_argument('--height', metavar='height', type=float, help='Plot height in inches (default:5.5)')
-	parser.add_argument('--mode', default='hydropathy', help='mode to run QUOD in (\033[1mhydropathy\033[0m, entropy)')
+	parser.add_argument('--mode', default=['hydropathy'], nargs='+', help='mode to run QUOD in (\033[1mhydropathy\033[0m, entropy)')
+	parser.add_argument('--psipred-window', metavar='windowsize', type=int, default=1, help='Window size for PSIPRED')
 	parser.add_argument('--tick-font', metavar='size', type=int, help='Tick label size')
-	parser.add_argument('--topo-prob', action='store_true', help='Plot average HMMTOP log2 emission probabilities')
 	parser.add_argument('--viewer', metavar='viewer', default=None, help='Viewer to be used for opening plots')
 	parser.add_argument('--width', metavar='width', type=float, help='Plot width in inches (default:dynamic)')
 	parser.add_argument('--window', metavar='windowsize', type=int, default=19, help='Window size for hydropathy')
@@ -1523,7 +1172,6 @@ if __name__ == '__main__':
 	parser.add_argument('-ar', '--add-region', metavar='x0-x1(:color)(:"label")', nargs='+')
 
 	parser.add_argument('-am', '--add-marker', metavar='(+id):x1,x2,x3,...xn(:color)', nargs='+', help='Adds a circular marker at the specified positions on the hydropathy curve of the specified sequence')
-	parser.add_argument('-mr', '--mark-residue', metavar='(+id):resn1,resn2,resn3(:color)', nargs='+', help='Adds circular markers on the specified curve on the hydropathy curve of the specified sequence')
 
 	parser.add_argument('-at', '--add-tms', metavar='x0-x1(:color)', nargs='+', help='Adds TMSs to plot, e.g. 40-60:red 65-90:blue to add a red TMS covering residues 40 to 60 and a blue one covering residues 65 to 90 (default color: orange)')
 	parser.add_argument('-dt', '--delete-tms', metavar='(+id):x0-x1,x0-x1', nargs='+', help='Deletes TMSs on plot. Use +id to specify which sequence\'s TMSs should be deleted, e.g. "+0:5-25,30-40" to delete overlapping TMSs predicted for the first sequence and "+2:60-80:red,+4:70-95:blue" to delete overlapping TMSs predicted for the third and fifth sequence. +id specification propagates rightward and defaults to +0.')
@@ -1531,6 +1179,7 @@ if __name__ == '__main__':
 	parser.add_argument('-lt', '--load-tms', metavar='(+id1) fn1', nargs='+', help='Loads TMS definitions from HMMTOP output stored in a file')
 	parser.add_argument('-nt', '--no-tms', metavar='(+id)', nargs='+', help='Erases all TMSs for specified sequences. Applies early, so other TMS operations will override this effect.')
 	parser.add_argument('-rt', '--replace-tms', metavar='(+id):x0-x1(:color)', nargs='+', help='Replaces TMSs on plot. Use +id to specify which sequence\'s TMSs should be replaced, e.g. "+0:5-25,30-40" to replace overlapping TMSs predicted for the first sequence with new TMSs spanning 5-25 and 30-40 without changing colors and "+2:60-80:red +4:70-95:blue" to replace overlapping TMSs predicted for the third sequence with a new TMS spanning residues 60 to 80 and recolor them red and overlapping TMSs predicted for the fifth sequence with a new TMS spanning residues 70 to 95 and recolor it blue. +id specification propagates rightward and defaults to +0.')
+	parser.add_argument('-lp', '--load-psipred', nargs='+', help='Load a PSIPRED prediction file')
 
 	args = parser.parse_args()
 
@@ -1546,10 +1195,19 @@ if __name__ == '__main__':
 	#	for cmd in args.manual_tms:
 	#		tms_script += cmd + ' '
 	#tms_script = tms_script.strip()
+	infiles = []
+	for fn in args.infile: 
+		infiles.append((fn, 'hydropathy'))
+		if args.entropy: infiles.append((fn, 'entropy'))
+	if args.load_psipred:
+		for fn in args.load_psipred:
+			infiles.append((fn, 'psipred'))
 
 	mode = args.mode
-	if args.entropy: mode = 'entropy'
-	elif args.sp: mode = 'psipred'
+	if len(args.mode) == 1:
+		if args.entropy: mode = ['entropy']
+		elif args.sp: mode = ['psipred']
+	else: mode = args.mode
 
-	main(args.infile, mode=mode, walls=args.walls, wall=args.wall, bars=args.bars, dpi=args.r, imgfmt=args.t, force_seq=args.s, outdir=args.d, outfile=args.o, color=args.color, title=args.title, quiet=args.q, viewer=args.a, axis_font=args.axis_font, width=args.width, height=args.height, x_offset=args.x_offset, add_tms=args.add_tms, delete_tms=args.delete_tms, extend_tms=args.extend_tms, replace_tms=args.replace_tms, no_tms=args.no_tms, tick_font=args.tick_font, add_marker=args.add_marker, mark_residue=args.mark_residue, add_region=args.add_region, xticks=args.xticks, load_tms=args.load_tms, entropy=args.entropy, window=args.window, grid=args.grid, topo_prob=args.topo_prob)
+	main(infiles, mode=mode, walls=args.walls, wall=args.wall, bars=args.bars, dpi=args.r, imgfmt=args.t, force_seq=args.s, outdir=args.d, outfile=args.o, color=args.color, title=args.title, quiet=args.q, viewer=args.a, axis_font=args.axis_font, width=args.width, height=args.height, x_offset=args.x_offset, add_tms=args.add_tms, delete_tms=args.delete_tms, extend_tms=args.extend_tms, replace_tms=args.replace_tms, no_tms=args.no_tms, tick_font=args.tick_font, add_marker=args.add_marker, add_region=args.add_region, xticks=args.xticks, load_tms=args.load_tms, entropy=args.entropy, window=args.window, psipred_window=args.psipred_window)
 
